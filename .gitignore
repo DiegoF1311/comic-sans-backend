@@ -1,0 +1,10 @@
+# Go
+*.exe
+vendor/
+
+# Node
+node_modules/
+dist/
+
+# Env
+.env
