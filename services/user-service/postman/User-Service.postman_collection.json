@@ -1,0 +1,1181 @@
+{
+	"info": {
+		"_postman_id": "user-service-tienda-generica",
+		"name": "User Service — Tienda Genérica",
+		"description": "# User Service API Documentation\n\n## Overview\nThe **user-service** is a Go microservice (port **3002**) responsible for full CRUD operations on users within the Tienda Genérica backend system. It uses **Gin** as the HTTP framework, **GORM** as the ORM, and **MySQL 8.0** (`db_users` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cédula of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Model — `users` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| cedula | VARCHAR(20) | PRIMARY KEY | National ID number |\n| full_name | VARCHAR(100) | NOT NULL | Full name |\n| email | VARCHAR(100) | NOT NULL | Email address |\n| username | VARCHAR(50) | NOT NULL, UNIQUE | Login username |\n| password_hash | VARCHAR(255) | NOT NULL | bcrypt hash (cost 10) |\n| is_active | BOOLEAN | NOT NULL, DEFAULT true | Soft-active flag |\n| created_at | DATETIME | AUTO (creation time) | Timestamp |\n\n## Seed Data\nOn first startup (empty table), the service seeds an initial admin:\n- **Cédula:** `0`\n- **Username:** `admininicial`\n- **Password:** `admin123456`\n- **Email:** `admin@tienda.com`\n- **Active:** `true`\n\n> After the first real user is created via `POST /users/save`, the `admininicial` user is automatically **deactivated** (`is_active = false`).\n\n## Business Rules\n1. `cedula` and `username` must be unique across all users\n2. Passwords are hashed with **bcrypt cost 10** before storage\n3. The `password_hash` field is **never** returned in responses (except the internal `/users/by-username/:username` endpoint used by auth-service)\n4. A user **cannot delete themselves** (checked via `X-User-Id` header)\n5. The list endpoint always returns an array (`[]` if empty, never `null`)\n6. On update, password change is optional (if the `password` field is empty, the existing hash is preserved)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3002",
+			"type": "string",
+			"description": "Base URL of the user-service (direct, bypassing API Gateway)"
+		},
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway (production entry point)"
+		},
+		{
+			"key": "test_cedula",
+			"value": "12345678",
+			"type": "string",
+			"description": "Sample cédula for testing"
+		},
+		{
+			"key": "test_username",
+			"value": "jperez",
+			"type": "string",
+			"description": "Sample username for testing"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Health Check\n\nReturns the health status of the user-service. Use this endpoint to verify that the service is running and responsive.\n\n### Authentication\nNone required.\n\n### Parameters\nNone.\n\n### Response\n- **200 OK** — Service is healthy\n\n### Notes\n- This endpoint does not check database connectivity\n- Useful for load balancer health probes and monitoring"
+					},
+					"response": [
+						{
+							"name": "200 — Service Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"user-service\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Service health and liveness probe."
+		},
+		{
+			"name": "Users — CRUD",
+			"item": [
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response data does not contain password_hash', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.not.have.property('password_hash');",
+									"});",
+									"",
+									"pm.test('Response data has correct fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('cedula');",
+									"    pm.expect(jsonData.data).to.have.property('full_name');",
+									"    pm.expect(jsonData.data).to.have.property('email');",
+									"    pm.expect(jsonData.data).to.have.property('username');",
+									"    pm.expect(jsonData.data).to.have.property('is_active');",
+									"    pm.expect(jsonData.data).to.have.property('created_at');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": "Required. Request body is JSON."
+							},
+							{
+								"key": "X-User-Id",
+								"value": "0",
+								"description": "Cédula of the authenticated user (injected by API Gateway). Not strictly required for creation but included for consistency."
+							},
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker (injected by API Gateway)."
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez\",\n  \"email\": \"juan@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"miContraseñaSegura123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/users/save",
+							"host": ["{{base_url}}"],
+							"path": ["users", "save"]
+						},
+						"description": "## Create User\n\nCreates a new user in the system. The password is hashed with **bcrypt (cost 10)** before storage. The response **never** includes the `password_hash` field.\n\n### Authentication\nMust come through the API Gateway (headers `X-User-Id`, `X-Internal`).\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `cedula` | string | Yes | National ID. Must be unique. Max 20 chars. |\n| `full_name` | string | Yes | User's full name. Max 100 chars. |\n| `email` | string | Yes | Email address. Max 100 chars. |\n| `username` | string | Yes | Login username. Must be unique. Max 50 chars. |\n| `password` | string | Yes | Plain-text password. Will be hashed. |\n\n### Validation Rules\n- All fields are **required** and must be **non-empty** after trimming whitespace\n- `cedula` must not already exist in the database\n- `username` must not already exist in the database\n\n### Side Effects\n- **Admin deactivation:** After the first real user is created, the seed user `admininicial` is automatically deactivated (`is_active = false`). This happens on every create call but only affects the admin if still active.\n\n### Responses\n| Status | Condition |\n|---|---|\n| 201 Created | User created successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 409 Conflict | Cédula already exists |\n| 409 Conflict | Username already in use |\n| 500 Internal Server Error | Password hashing failure or DB error |"
+					},
+					"response": [
+						{
+							"name": "201 — User Created Successfully",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez\",\n  \"email\": \"juan@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"miContraseñaSegura123\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/save",
+									"host": ["{{base_url}}"],
+									"path": ["users", "save"]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"12345678\",\n    \"full_name\": \"Juan Pérez\",\n    \"email\": \"juan@mail.com\",\n    \"username\": \"jperez\",\n    \"is_active\": true,\n    \"created_at\": \"2026-03-11T14:30:00Z\"\n  },\n  \"error\": null\n}"
+						},
+						{
+							"name": "400 — Missing Required Fields",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"\",\n  \"email\": \"juan@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"pass123\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/save",
+									"host": ["{{base_url}}"],
+									"path": ["users", "save"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+						},
+						{
+							"name": "409 — Cédula Already Exists",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Otro Nombre\",\n  \"email\": \"otro@mail.com\",\n  \"username\": \"otro_user\",\n  \"password\": \"pass123\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/save",
+									"host": ["{{base_url}}"],
+									"path": ["users", "save"]
+								}
+							},
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Ya existe un usuario con esa cédula\"\n}"
+						},
+						{
+							"name": "409 — Username Already In Use",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"99999999\",\n  \"full_name\": \"Otro Nombre\",\n  \"email\": \"otro@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"pass123\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/save",
+									"host": ["{{base_url}}"],
+									"path": ["users", "save"]
+								}
+							},
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"El nombre de usuario ya está en uso\"\n}"
+						},
+						{
+							"name": "500 — Password Hashing Error",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"55555555\",\n  \"full_name\": \"Test User\",\n  \"email\": \"test@mail.com\",\n  \"username\": \"testuser\",\n  \"password\": \"pass\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/save",
+									"host": ["{{base_url}}"],
+									"path": ["users", "save"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error al procesar la contraseña\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get User by ID (Cédula)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response data does not contain password_hash', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.not.have.property('password_hash');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "0",
+								"description": "Cédula of the authenticated user (injected by API Gateway)."
+							},
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker (injected by API Gateway)."
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users/{{test_cedula}}",
+							"host": ["{{base_url}}"],
+							"path": ["users", "{{test_cedula}}"]
+						},
+						"description": "## Get User by ID (Cédula)\n\nRetrieves a single user by their cédula (national ID). The response **never** includes `password_hash`.\n\n### Authentication\nMust come through the API Gateway.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The user's cédula (national ID number) |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | User found |\n| 404 Not Found | No user with that cédula |\n| 500 Internal Server Error | Database error |"
+					},
+					"response": [
+						{
+							"name": "200 — User Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/12345678",
+									"host": ["{{base_url}}"],
+									"path": ["users", "12345678"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"12345678\",\n    \"full_name\": \"Juan Pérez\",\n    \"email\": \"juan@mail.com\",\n    \"username\": \"jperez\",\n    \"is_active\": true,\n    \"created_at\": \"2026-03-11T14:30:00Z\"\n  },\n  \"error\": null\n}"
+						},
+						{
+							"name": "404 — User Not Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/99999999",
+									"host": ["{{base_url}}"],
+									"path": ["users", "99999999"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Usuario no encontrado\"\n}"
+						},
+						{
+							"name": "500 — Internal Server Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/12345678",
+									"host": ["{{base_url}}"],
+									"path": ["users", "12345678"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List All Users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('No user contains password_hash', function () {",
+									"    var jsonData = pm.response.json();",
+									"    jsonData.data.forEach(function(user) {",
+									"        pm.expect(user).to.not.have.property('password_hash');",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "0",
+								"description": "Cédula of the authenticated user (injected by API Gateway)."
+							},
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker (injected by API Gateway)."
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["users", "list"]
+						},
+						"description": "## List All Users\n\nRetrieves all users in the system, both active and inactive. The response **never** includes `password_hash` for any user.\n\n### Authentication\nMust come through the API Gateway.\n\n### Parameters\nNone.\n\n### Response Behavior\n- Always returns an **array** in `data` (never `null`)\n- If no users exist, returns an empty array `[]`\n- Includes both active (`is_active: true`) and inactive (`is_active: false`) users\n- Users are returned in database order\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | List retrieved (may be empty) |\n| 500 Internal Server Error | Database error |\n\n### Notes\n- This endpoint is also called by **report-service** (`GET /users/list`) to aggregate user data for reports\n- The `admininicial` seed user will appear in the list with `is_active: false` after the first real user is created"
+					},
+					"response": [
+						{
+							"name": "200 — Users List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["users", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"cedula\": \"0\",\n      \"full_name\": \"Administrador Inicial\",\n      \"email\": \"admin@tienda.com\",\n      \"username\": \"admininicial\",\n      \"is_active\": false,\n      \"created_at\": \"2026-03-11T10:00:00Z\"\n    },\n    {\n      \"cedula\": \"12345678\",\n      \"full_name\": \"Juan Pérez\",\n      \"email\": \"juan@mail.com\",\n      \"username\": \"jperez\",\n      \"is_active\": true,\n      \"created_at\": \"2026-03-11T14:30:00Z\"\n    },\n    {\n      \"cedula\": \"87654321\",\n      \"full_name\": \"María López\",\n      \"email\": \"maria@mail.com\",\n      \"username\": \"mlopez\",\n      \"is_active\": true,\n      \"created_at\": \"2026-03-11T15:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
+						},
+						{
+							"name": "200 — Empty List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["users", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [],\n  \"error\": null\n}"
+						},
+						{
+							"name": "500 — Internal Server Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-User-Id", "value": "0" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["users", "list"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Update User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response data does not contain password_hash', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.not.have.property('password_hash');",
+									"});",
+									"",
+									"pm.test('Updated fields are reflected', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.full_name).to.eql('Juan Pérez Actualizado');",
+									"    pm.expect(jsonData.data.email).to.eql('juan.nuevo@mail.com');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": "Required. Request body is JSON."
+							},
+							{
+								"key": "X-User-Id",
+								"value": "12345678",
+								"description": "Cédula of the authenticated user (injected by API Gateway)."
+							},
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker (injected by API Gateway)."
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez Actualizado\",\n  \"email\": \"juan.nuevo@mail.com\",\n  \"username\": \"jperez2\",\n  \"password\": \"nuevaContraseña456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/users/update",
+							"host": ["{{base_url}}"],
+							"path": ["users", "update"]
+						},
+						"description": "## Update User\n\nUpdates an existing user identified by `cedula`. The `cedula` field is the **identifier** and cannot be changed.\n\n### Authentication\nMust come through the API Gateway.\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `cedula` | string | Yes | Identifies the user to update. **Cannot be changed.** |\n| `full_name` | string | Yes | New full name |\n| `email` | string | Yes | New email address |\n| `username` | string | Yes | New username |\n| `password` | string | Optional | New password (plain text). If empty string `\"\"`, password remains unchanged. |\n\n### Validation Rules\n- `cedula`, `full_name`, `email`, and `username` are **required** and must be **non-empty** after trimming\n- The user identified by `cedula` must exist\n- If `password` is provided and non-empty, it will be re-hashed with bcrypt (cost 10)\n\n### Important Notes\n- The `cedula` in the body identifies **which** user to update — it is NOT updated itself\n- If you only want to update specific fields, you still need to send ALL fields (except password which is optional)\n- The `is_active` field **cannot** be changed via this endpoint\n- The `created_at` field is preserved from the original record\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | User updated successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 404 Not Found | No user with that cédula |\n| 500 Internal Server Error | Password hashing failure or DB error |"
+					},
+					"response": [
+						{
+							"name": "200 — User Updated (with password change)",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez Actualizado\",\n  \"email\": \"juan.nuevo@mail.com\",\n  \"username\": \"jperez2\",\n  \"password\": \"nuevaContraseña456\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/update",
+									"host": ["{{base_url}}"],
+									"path": ["users", "update"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"12345678\",\n    \"full_name\": \"Juan Pérez Actualizado\",\n    \"email\": \"juan.nuevo@mail.com\",\n    \"username\": \"jperez2\",\n    \"is_active\": true,\n    \"created_at\": \"2026-03-11T14:30:00Z\"\n  },\n  \"error\": null\n}"
+						},
+						{
+							"name": "200 — User Updated (without password change)",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez Actualizado\",\n  \"email\": \"juan.nuevo@mail.com\",\n  \"username\": \"jperez2\",\n  \"password\": \"\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/update",
+									"host": ["{{base_url}}"],
+									"path": ["users", "update"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"12345678\",\n    \"full_name\": \"Juan Pérez Actualizado\",\n    \"email\": \"juan.nuevo@mail.com\",\n    \"username\": \"jperez2\",\n    \"is_active\": true,\n    \"created_at\": \"2026-03-11T14:30:00Z\"\n  },\n  \"error\": null\n}"
+						},
+						{
+							"name": "400 — Missing Required Fields",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"\",\n  \"email\": \"juan@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/update",
+									"host": ["{{base_url}}"],
+									"path": ["users", "update"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+						},
+						{
+							"name": "404 — User Not Found",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"99999999\",\n  \"full_name\": \"No Existe\",\n  \"email\": \"no@mail.com\",\n  \"username\": \"noexiste\",\n  \"password\": \"\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/update",
+									"host": ["{{base_url}}"],
+									"path": ["users", "update"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Usuario no encontrado\"\n}"
+						},
+						{
+							"name": "500 — Internal Server Error",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"cedula\": \"12345678\",\n  \"full_name\": \"Juan Pérez\",\n  \"email\": \"juan@mail.com\",\n  \"username\": \"jperez\",\n  \"password\": \"newpass\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/users/update",
+									"host": ["{{base_url}}"],
+									"path": ["users", "update"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error al actualizar el usuario\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', function () {",
+									"    pm.response.to.have.status(204);",
+									"});",
+									"",
+									"pm.test('Response body is empty', function () {",
+									"    pm.expect(pm.response.text()).to.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-User-Id",
+								"value": "12345678",
+								"description": "Cédula of the authenticated user (injected by API Gateway). CRITICAL: Used to prevent self-deletion."
+							},
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker (injected by API Gateway)."
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users/delete/{{test_cedula}}",
+							"host": ["{{base_url}}"],
+							"path": ["users", "delete", "{{test_cedula}}"]
+						},
+						"description": "## Delete User\n\nPermanently deletes a user by their cédula. This is a **hard delete** — the user record is removed from the database entirely.\n\n### Authentication\nMust come through the API Gateway. The `X-User-Id` header is **critical** for this endpoint.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The cédula of the user to delete |\n\n### Required Headers\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cédula of the currently authenticated user. Used to prevent self-deletion. |\n\n### Business Rules\n- A user **cannot delete themselves**: if the path `:id` equals the `X-User-Id` header, the request is rejected with 400.\n- The target user must exist in the database.\n\n### Responses\n| Status | Condition |\n|---|---|\n| 204 No Content | User deleted successfully (empty body) |\n| 400 Bad Request | Attempting to delete own user |\n| 404 Not Found | No user with that cédula |\n| 500 Internal Server Error | Database error |\n\n### Warning\nThis is an **irreversible** operation. The user record is permanently removed."
+					},
+					"response": [
+						{
+							"name": "204 — User Deleted Successfully",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/delete/87654321",
+									"host": ["{{base_url}}"],
+									"path": ["users", "delete", "87654321"]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "text",
+							"header": [],
+							"body": ""
+						},
+						{
+							"name": "400 — Cannot Delete Own User",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/delete/12345678",
+									"host": ["{{base_url}}"],
+									"path": ["users", "delete", "12345678"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"No puedes eliminar tu propio usuario\"\n}"
+						},
+						{
+							"name": "404 — User Not Found",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/delete/99999999",
+									"host": ["{{base_url}}"],
+									"path": ["users", "delete", "99999999"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Usuario no encontrado\"\n}"
+						},
+						{
+							"name": "500 — Internal Server Error",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{ "key": "X-User-Id", "value": "12345678" },
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/delete/87654321",
+									"host": ["{{base_url}}"],
+									"path": ["users", "delete", "87654321"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error al eliminar el usuario\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Core CRUD operations for user management. All endpoints return the standard response envelope `{ success, data, error }`. Password hashes are **never** exposed in responses from these endpoints."
+		},
+		{
+			"name": "Internal — Auth Service",
+			"item": [
+				{
+					"name": "Get User by Username (Internal)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response data CONTAINS password_hash', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('password_hash');",
+									"});",
+									"",
+									"pm.test('password_hash starts with bcrypt prefix', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.password_hash).to.match(/^\\$2[aby]?\\$/);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Internal",
+								"value": "true",
+								"description": "Internal request marker. This endpoint is called service-to-service (auth-service → user-service)."
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/users/by-username/{{test_username}}",
+							"host": ["{{base_url}}"],
+							"path": ["users", "by-username", "{{test_username}}"]
+						},
+						"description": "## Get User by Username (Internal)\n\nRetrieves a user by their username. Unlike other endpoints, this one **includes** the `password_hash` field in the response. This is by design — the auth-service calls this endpoint to verify login credentials.\n\n### Purpose\nThis endpoint exists exclusively for the **auth-service** login flow:\n1. User sends `POST /auth/login` with username + password to auth-service\n2. Auth-service calls `GET /users/by-username/:username` on user-service\n3. Auth-service receives the full user object (including `password_hash`)\n4. Auth-service compares the provided password against the bcrypt hash\n5. If valid, auth-service generates and returns a JWT\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `username` | string | Yes | The username to look up |\n\n### Response Fields\n| Field | Type | Description |\n|---|---|---|\n| `cedula` | string | User's national ID |\n| `full_name` | string | Full name |\n| `email` | string | Email address |\n| `username` | string | Username |\n| `password_hash` | string | **bcrypt hash** of the password (only on this endpoint!) |\n| `is_active` | boolean | Whether the user is active |\n| `created_at` | string (ISO 8601) | Creation timestamp |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | User found (includes password_hash) |\n| 404 Not Found | No user with that username |\n| 500 Internal Server Error | Database error |\n\n### Security Note\nThis endpoint should **never** be exposed directly to end users. It is only accessible internally (service-to-service). The API Gateway should NOT route external requests to this path."
+					},
+					"response": [
+						{
+							"name": "200 — User Found (with password_hash)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/by-username/admininicial",
+									"host": ["{{base_url}}"],
+									"path": ["users", "by-username", "admininicial"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"0\",\n    \"full_name\": \"Administrador Inicial\",\n    \"email\": \"admin@tienda.com\",\n    \"username\": \"admininicial\",\n    \"password_hash\": \"$2a$10$ABC123examplehashnotreal...\",\n    \"is_active\": true,\n    \"created_at\": \"2026-03-11T10:00:00Z\"\n  },\n  \"error\": null\n}"
+						},
+						{
+							"name": "404 — Username Not Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/by-username/noexiste",
+									"host": ["{{base_url}}"],
+									"path": ["users", "by-username", "noexiste"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Usuario no encontrado\"\n}"
+						},
+						{
+							"name": "500 — Internal Server Error",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/by-username/admininicial",
+									"host": ["{{base_url}}"],
+									"path": ["users", "by-username", "admininicial"]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Internal endpoints consumed by other microservices (primarily **auth-service**). These endpoints expose sensitive data (like `password_hash`) and should **never** be routed to external clients.\n\n**Consumer:** `auth-service` → `user-service` via `GET /users/by-username/:username`"
+		},
+		{
+			"name": "Workflow — Complete Test Scenario",
+			"item": [
+				{
+					"name": "Step 1 — Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Verify the service is running before starting tests."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 2 — List Users (should have seed admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-User-Id", "value": "0" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["users", "list"]
+						},
+						"description": "On a fresh database, this should return the seed `admininicial` user with `is_active: true`."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 3 — Login as seed admin (via by-username)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/by-username/admininicial",
+							"host": ["{{base_url}}"],
+							"path": ["users", "by-username", "admininicial"]
+						},
+						"description": "Retrieve the seed admin's full record (including password_hash) to simulate what auth-service does during login. The password for this user is `admin123456`."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 4 — Create first real user (triggers admin deactivation)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-User-Id", "value": "0" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"10203040\",\n  \"full_name\": \"Carlos García\",\n  \"email\": \"carlos@tienda.com\",\n  \"username\": \"cgarcia\",\n  \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/users/save",
+							"host": ["{{base_url}}"],
+							"path": ["users", "save"]
+						},
+						"description": "Create the first real user. After this, the `admininicial` user will be automatically **deactivated** (`is_active: false`). This simulates the real onboarding flow."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 5 — Verify admin deactivated",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/0",
+							"host": ["{{base_url}}"],
+							"path": ["users", "0"]
+						},
+						"description": "Fetch the `admininicial` user (cédula `0`) and verify that `is_active` is now `false`."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 6 — Create second user",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"50607080\",\n  \"full_name\": \"Ana Rodríguez\",\n  \"email\": \"ana@tienda.com\",\n  \"username\": \"arodriguez\",\n  \"password\": \"securepass456\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/users/save",
+							"host": ["{{base_url}}"],
+							"path": ["users", "save"]
+						},
+						"description": "Create a second user to test normal creation flow (admin deactivation already happened)."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 7 — Update first user",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"10203040\",\n  \"full_name\": \"Carlos García Actualizado\",\n  \"email\": \"carlos.nuevo@tienda.com\",\n  \"username\": \"cgarcia\",\n  \"password\": \"\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/users/update",
+							"host": ["{{base_url}}"],
+							"path": ["users", "update"]
+						},
+						"description": "Update user info without changing the password (empty password field)."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 8 — Try self-deletion (should fail)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/delete/10203040",
+							"host": ["{{base_url}}"],
+							"path": ["users", "delete", "10203040"]
+						},
+						"description": "Attempt to delete own user (X-User-Id matches path :id). Should return **400 Bad Request** with `\"No puedes eliminar tu propio usuario\"`."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 9 — Delete second user (should succeed)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/delete/50607080",
+							"host": ["{{base_url}}"],
+							"path": ["users", "delete", "50607080"]
+						},
+						"description": "Delete the second user. X-User-Id (`10203040`) differs from the target (`50607080`), so this should succeed with **204 No Content**."
+					},
+					"response": []
+				},
+				{
+					"name": "Step 10 — Final list (verify state)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-User-Id", "value": "10203040" },
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["users", "list"]
+						},
+						"description": "Final verification. Expected state:\n- `admininicial` (cédula `0`) — `is_active: false`\n- `cgarcia` (cédula `10203040`) — `is_active: true`, updated name and email\n- `arodriguez` (cédula `50607080`) — **deleted**, should NOT appear"
+					},
+					"response": []
+				}
+			],
+			"description": "A step-by-step workflow that exercises the full lifecycle of the user-service. Run these requests **in order** against a fresh database to validate all business rules.\n\n### Scenario\n1. Health check\n2. Verify seed admin exists\n3. Simulate auth-service lookup\n4. Create first real user → admin auto-deactivation\n5. Verify admin is deactivated\n6. Create second user\n7. Update first user (no password change)\n8. Attempt self-deletion (expect 400)\n9. Delete second user (expect 204)\n10. Final list to verify state"
+		}
+	]
+}
