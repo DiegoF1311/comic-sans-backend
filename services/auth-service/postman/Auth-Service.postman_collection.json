@@ -1,0 +1,575 @@
+{
+	"info": {
+		"_postman_id": "auth-service-tienda-generica",
+		"name": "Auth Service — Tienda Genérica",
+		"description": "# Auth Service API Documentation\n\n## Overview\nThe **auth-service** is a stateless Go microservice (port **3001**) responsible for authenticating system users (employees/administrators) and issuing JWTs. It has **no database** of its own — it delegates user lookup to **user-service** via internal HTTP calls.\n\n## Architecture\n```\nHandler → HTTP Client → user-service (Clean Architecture, no DB layer)\n```\n\n## Authentication Flow\n1. Client sends `POST /login` with `username` and `password`\n2. auth-service calls `GET {USER_SERVICE_URL}/users/by-username/{username}` with `X-Internal: true`\n3. If user exists and is active, password is verified against the bcrypt hash\n4. On success, a signed **HS256 JWT** (24h expiry) is returned\n\n## JWT Payload\n```json\n{\n  \"user_id\": \"<cedula>\",\n  \"username\": \"<username>\",\n  \"iat\": <unix_timestamp>,\n  \"exp\": <unix_timestamp + 24h>\n}\n```\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Error Scenarios\n| Scenario | Status | Error Message |\n|---|---|---|\n| Missing username or password | 400 | `username y password son requeridos` |\n| User not found | 401 | `Credenciales inválidas` |\n| Wrong password | 401 | `Credenciales inválidas` |\n| Inactive user | 401 | `Usuario inactivo` |\n| user-service unreachable | 500 | `Error al consultar el servicio de usuarios` |\n\n## Dependencies\n- **user-service** (port 3002) must be running for login to work\n- Requires `JWT_SECRET` environment variable for token signing",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3001",
+			"type": "string",
+			"description": "Base URL of the auth-service (direct access)"
+		},
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway (production entry point)"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Health Check\n\nReturns the health status of the auth-service. Use this endpoint to verify that the service is running and responsive.\n\n### Authentication\nNone required.\n\n### Parameters\nNone.\n\n### Response\n- **200 OK** — Service is healthy\n\n### Notes\n- This endpoint does not verify connectivity to user-service\n- Useful for load balancer health probes and monitoring"
+					},
+					"response": [
+						{
+							"name": "200 — Service Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"auth-service\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Service health and liveness probe."
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains token', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('token');",
+									"    pm.expect(jsonData.data.token).to.be.a('string');",
+									"    pm.expect(jsonData.data.token.length).to.be.greaterThan(0);",
+									"});",
+									"",
+									"pm.test('Token is a valid JWT format (3 parts)', function () {",
+									"    var jsonData = pm.response.json();",
+									"    var parts = jsonData.data.token.split('.');",
+									"    pm.expect(parts.length).to.equal(3);",
+									"});",
+									"",
+									"// Store token for use in other requests",
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token', jsonData.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — Successful Authentication\n\nAuthenticates a system user with valid credentials and returns a JWT.\n\n### Prerequisites\n- **user-service** must be running on port 3002\n- The user `admininicial` must exist (auto-seeded on first startup of user-service)\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| username | string | Yes | Username of the system user |\n| password | string | Yes | Plain-text password |\n\n### Response\n- **200 OK** — Authentication successful, JWT returned in `data.token`\n\n### Notes\n- The returned JWT is valid for **24 hours**\n- JWT payload contains `user_id` (cédula) and `username`\n- The token is automatically saved to the `auth_token` collection variable for use in subsequent requests"
+					},
+					"response": [
+						{
+							"name": "200 — Login Successful",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDAwODY0MDAsImlhdCI6MTcwMDAwMDAwMCwidXNlcl9pZCI6IjAiLCJ1c2VybmFtZSI6ImFkbWluaW5pY2lhbCJ9.example_signature\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Login — Wrong Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Credenciales inválidas', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Credenciales inválidas');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"wrong_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — Wrong Password\n\nAttempts to log in with a valid username but an incorrect password.\n\n### Expected Behavior\n- The service finds the user via user-service\n- bcrypt comparison fails\n- Returns **401 Unauthorized** with `\"Credenciales inválidas\"`\n\n### Security Notes\n- The error message intentionally does not reveal whether the username or password was wrong\n- This follows security best practices to prevent username enumeration"
+					},
+					"response": [
+						{
+							"name": "401 — Wrong Password",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"wrong_password\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Credenciales inválidas\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login — User Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Credenciales inválidas', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Credenciales inválidas');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"nonexistent_user\",\n  \"password\": \"any_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — User Not Found\n\nAttempts to log in with a username that does not exist in user-service.\n\n### Expected Behavior\n- user-service returns 404\n- auth-service returns **401 Unauthorized** with `\"Credenciales inválidas\"`\n\n### Security Notes\n- Returns the same error as wrong password to prevent username enumeration"
+					},
+					"response": [
+						{
+							"name": "401 — User Not Found",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"nonexistent_user\",\n  \"password\": \"any_password\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Credenciales inválidas\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login — Missing Fields",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates required fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('username y password son requeridos');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — Missing Required Fields\n\nAttempts to log in without providing the required `username` and/or `password` fields.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"username y password son requeridos\"`\n- Does not call user-service\n\n### Validation Rules\n- Both `username` and `password` must be present and non-empty\n- Whitespace-only values are treated as empty"
+					},
+					"response": [
+						{
+							"name": "400 — Missing Fields",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"username y password son requeridos\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login — Empty Body",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates required fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('username y password son requeridos');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — Empty Body\n\nSends a login request with an empty JSON body.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"username y password son requeridos\"`\n- Validates that both fields are required before any processing"
+					},
+					"response": [
+						{
+							"name": "400 — Empty Body",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"username y password son requeridos\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Login — Inactive User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Usuario inactivo', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Usuario inactivo');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "## Login — Inactive User\n\nAttempts to log in with a user whose `is_active` flag is `false`.\n\n### Prerequisites\nTo reproduce this scenario:\n1. Start with user-service containing only the `admininicial` seed user\n2. Create a new user via `POST /users/save` — this automatically deactivates `admininicial`\n3. Attempt to log in as `admininicial`\n\n### Expected Behavior\n- user-service returns the user with `is_active: false`\n- auth-service returns **401 Unauthorized** with `\"Usuario inactivo\"`\n- Password is **not checked** (inactive check happens first)"
+					},
+					"response": [
+						{
+							"name": "401 — Inactive User",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/login",
+									"host": ["{{base_url}}"],
+									"path": ["login"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Usuario inactivo\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Authentication endpoints for system users (employees/administrators). Requires **user-service** to be running."
+		}
+	]
+}
