@@ -10,8 +10,8 @@ export class CustomerRepository {
     this.repo = AppDataSource.getRepository(CustomerEntity);
   }
 
-  async findByCedula(cedula: string): Promise<ICustomer | null> {
-    return this.repo.findOneBy({ cedula });
+  async findByDocumentId(documentId: string): Promise<ICustomer | null> {
+    return this.repo.findOneBy({ document_id: documentId });
   }
 
   async findAll(): Promise<ICustomer[]> {
@@ -23,12 +23,12 @@ export class CustomerRepository {
     return this.repo.save(customer);
   }
 
-  async update(cedula: string, data: Omit<CreateCustomerDto, 'cedula'>): Promise<ICustomer> {
-    await this.repo.update(cedula, data);
-    return (await this.repo.findOneBy({ cedula }))!;
+  async update(documentId: string, data: Omit<CreateCustomerDto, 'document_id'>): Promise<ICustomer> {
+    await this.repo.update(documentId, data);
+    return (await this.repo.findOneBy({ document_id: documentId }))!;
   }
 
-  async delete(cedula: string): Promise<void> {
-    await this.repo.delete(cedula);
+  async delete(documentId: string): Promise<void> {
+    await this.repo.delete(documentId);
   }
 }

@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "customer-service-tienda-generica",
-		"name": "Customer Service — Tienda Genérica",
-		"description": "# Customer Service API Documentation\n\n## Overview\nThe **customer-service** is a TypeScript microservice (port **3004**) responsible for full CRUD operations on customers within the Tienda Genérica backend system. It uses **Express 4** as the HTTP framework, **TypeORM 0.3** as the ORM, and **MySQL 8.0** (`db_customers` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cédula of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Model — `customers` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| cedula | VARCHAR(20) | PRIMARY KEY | National ID number |\n| full_name | VARCHAR(100) | NOT NULL | Full name |\n| address | VARCHAR(200) | NOT NULL | Customer address |\n| phone | VARCHAR(20) | NOT NULL | Phone number |\n| email | VARCHAR(100) | NOT NULL | Email address |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n## Business Rules\n1. `cedula` must be unique across all customers\n2. All fields (`cedula`, `full_name`, `address`, `phone`, `email`) are required for create and update operations\n3. `cedula` cannot be changed on update — it is the identifier\n4. The list endpoint always returns an array (`[]` if empty, never `null`)\n5. Delete returns 204 with no body content",
+		"_postman_id": "customer-service-collection",
+		"name": "Customer Service",
+		"description": "# Customer Service API Documentation\n\n## Overview\nThe **customer-service** is a TypeScript microservice (port **3004**) responsible for full CRUD operations on customers. It uses **Express 4** as the HTTP framework, **TypeORM 0.3** as the ORM, and **MySQL 8.0** (`db_customers` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Document ID of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Model — `customers` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| document_id | VARCHAR(20) | PRIMARY KEY | National ID number |\n| full_name | VARCHAR(100) | NOT NULL | Full name |\n| address | VARCHAR(200) | NOT NULL | Customer address |\n| phone | VARCHAR(20) | NOT NULL | Phone number |\n| email | VARCHAR(100) | NOT NULL | Email address |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n## Business Rules\n1. `document_id` must be unique across all customers\n2. All fields (`document_id`, `full_name`, `address`, `phone`, `email`) are required for create and update operations\n3. `document_id` cannot be changed on update — it is the identifier\n4. The list endpoint always returns an array (`[]` if empty, never `null`)\n5. Delete returns 204 with no body content",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -19,10 +19,10 @@
 			"description": "Base URL of the API Gateway (production entry point)"
 		},
 		{
-			"key": "test_cedula",
+			"key": "test_document_id",
 			"value": "11111111",
 			"type": "string",
-			"description": "Sample cédula for testing"
+			"description": "Sample document ID for testing"
 		}
 	],
 	"item": [
@@ -90,7 +90,7 @@
 									"",
 									"pm.test('Response data has correct fields', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.data).to.have.property('cedula');",
+									"    pm.expect(jsonData.data).to.have.property('document_id');",
 									"    pm.expect(jsonData.data).to.have.property('full_name');",
 									"    pm.expect(jsonData.data).to.have.property('address');",
 									"    pm.expect(jsonData.data).to.have.property('phone');",
@@ -113,7 +113,7 @@
 							{
 								"key": "X-User-Id",
 								"value": "12345678",
-								"description": "Cédula of the authenticated user (injected by API Gateway)."
+								"description": "Document ID of the authenticated user (injected by API Gateway)."
 							},
 							{
 								"key": "X-Internal",
@@ -123,7 +123,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López\",\n  \"address\": \"Calle 1 #2-3\",\n  \"phone\": \"3001234567\",\n  \"email\": \"maria@mail.com\"\n}",
+							"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Mary Lopez\",\n  \"address\": \"123 Main St\",\n  \"phone\": \"3001234567\",\n  \"email\": \"mary@mail.com\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -135,7 +135,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["customers", "save"]
 						},
-						"description": "## Create Customer\n\nCreates a new customer in the system.\n\n### Authentication\nMust come through the API Gateway (headers `X-User-Id`, `X-Internal`).\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `cedula` | string | Yes | National ID. Must be unique. Max 20 chars. |\n| `full_name` | string | Yes | Customer's full name. Max 100 chars. |\n| `address` | string | Yes | Customer's address. Max 200 chars. |\n| `phone` | string | Yes | Phone number. Max 20 chars. |\n| `email` | string | Yes | Email address. Max 100 chars. |\n\n### Validation Rules\n- All fields are **required** and must be **non-empty**\n- `cedula` must not already exist in the database\n\n### Responses\n| Status | Condition |\n|---|---|\n| 201 Created | Customer created successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 409 Conflict | Cédula already exists |\n| 500 Internal Server Error | DB error |"
+						"description": "## Create Customer\n\nCreates a new customer in the system.\n\n### Authentication\nMust come through the API Gateway (headers `X-User-Id`, `X-Internal`).\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `document_id` | string | Yes | National ID. Must be unique. Max 20 chars. |\n| `full_name` | string | Yes | Customer's full name. Max 100 chars. |\n| `address` | string | Yes | Customer's address. Max 200 chars. |\n| `phone` | string | Yes | Phone number. Max 20 chars. |\n| `email` | string | Yes | Email address. Max 100 chars. |\n\n### Validation Rules\n- All fields are **required** and must be **non-empty**\n- `document_id` must not already exist in the database\n\n### Responses\n| Status | Condition |\n|---|---|\n| 201 Created | Customer created successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 409 Conflict | Document ID already exists |\n| 500 Internal Server Error | DB error |"
 					},
 					"response": [
 						{
@@ -149,7 +149,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López\",\n  \"address\": \"Calle 1 #2-3\",\n  \"phone\": \"3001234567\",\n  \"email\": \"maria@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Mary Lopez\",\n  \"address\": \"123 Main St\",\n  \"phone\": \"3001234567\",\n  \"email\": \"mary@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -164,7 +164,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"11111111\",\n    \"full_name\": \"María López\",\n    \"address\": \"Calle 1 #2-3\",\n    \"phone\": \"3001234567\",\n    \"email\": \"maria@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"document_id\": \"11111111\",\n    \"full_name\": \"Mary Lopez\",\n    \"address\": \"123 Main St\",\n    \"phone\": \"3001234567\",\n    \"email\": \"mary@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
 						},
 						{
 							"name": "400 — Missing Required Fields",
@@ -177,7 +177,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"\",\n  \"address\": \"\",\n  \"phone\": \"\",\n  \"email\": \"\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"\",\n  \"address\": \"\",\n  \"phone\": \"\",\n  \"email\": \"\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -192,10 +192,10 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
 						},
 						{
-							"name": "409 — Cédula Already Exists",
+							"name": "409 — Document ID Already Exists",
 							"originalRequest": {
 								"method": "POST",
 								"header": [
@@ -205,7 +205,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"Otro Cliente\",\n  \"address\": \"Otra dirección\",\n  \"phone\": \"3109876543\",\n  \"email\": \"otro@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Another Customer\",\n  \"address\": \"456 Oak Ave\",\n  \"phone\": \"3109876543\",\n  \"email\": \"another@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -220,7 +220,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Ya existe un cliente con esa cédula\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"A customer with that document ID already exists\"\n}"
 						},
 						{
 							"name": "500 — Internal Server Error",
@@ -233,7 +233,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"55555555\",\n  \"full_name\": \"Test Client\",\n  \"address\": \"Test Address\",\n  \"phone\": \"3001111111\",\n  \"email\": \"test@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"55555555\",\n  \"full_name\": \"Test Client\",\n  \"address\": \"Test Address\",\n  \"phone\": \"3001111111\",\n  \"email\": \"test@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -248,12 +248,12 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Internal server error\"\n}"
 						}
 					]
 				},
 				{
-					"name": "Get Customer by ID (Cédula)",
+					"name": "Get Customer by ID (Document ID)",
 					"event": [
 						{
 							"listen": "test",
@@ -270,7 +270,7 @@
 									"",
 									"pm.test('Response data has correct fields', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.data).to.have.property('cedula');",
+									"    pm.expect(jsonData.data).to.have.property('document_id');",
 									"    pm.expect(jsonData.data).to.have.property('full_name');",
 									"    pm.expect(jsonData.data).to.have.property('address');",
 									"    pm.expect(jsonData.data).to.have.property('phone');",
@@ -288,7 +288,7 @@
 							{
 								"key": "X-User-Id",
 								"value": "12345678",
-								"description": "Cédula of the authenticated user (injected by API Gateway)."
+								"description": "Document ID of the authenticated user (injected by API Gateway)."
 							},
 							{
 								"key": "X-Internal",
@@ -297,11 +297,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/customers/{{test_cedula}}",
+							"raw": "{{base_url}}/customers/{{test_document_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["customers", "{{test_cedula}}"]
+							"path": ["customers", "{{test_document_id}}"]
 						},
-						"description": "## Get Customer by ID (Cédula)\n\nRetrieves a single customer by their cédula (national ID).\n\n### Authentication\nMust come through the API Gateway.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The customer's cédula (national ID number) |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | Customer found |\n| 404 Not Found | No customer with that cédula |\n| 500 Internal Server Error | Database error |"
+						"description": "## Get Customer by ID (Document ID)\n\nRetrieves a single customer by their document ID.\n\n### Authentication\nMust come through the API Gateway.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The customer's document ID |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | Customer found |\n| 404 Not Found | No customer with that document ID |\n| 500 Internal Server Error | Database error |"
 					},
 					"response": [
 						{
@@ -324,7 +324,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"11111111\",\n    \"full_name\": \"María López\",\n    \"address\": \"Calle 1 #2-3\",\n    \"phone\": \"3001234567\",\n    \"email\": \"maria@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"document_id\": \"11111111\",\n    \"full_name\": \"Mary Lopez\",\n    \"address\": \"123 Main St\",\n    \"phone\": \"3001234567\",\n    \"email\": \"mary@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
 						},
 						{
 							"name": "404 — Customer Not Found",
@@ -346,7 +346,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Cliente no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Customer not found\"\n}"
 						},
 						{
 							"name": "500 — Internal Server Error",
@@ -368,7 +368,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Internal server error\"\n}"
 						}
 					]
 				},
@@ -403,7 +403,7 @@
 							{
 								"key": "X-User-Id",
 								"value": "12345678",
-								"description": "Cédula of the authenticated user (injected by API Gateway)."
+								"description": "Document ID of the authenticated user (injected by API Gateway)."
 							},
 							{
 								"key": "X-Internal",
@@ -439,7 +439,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"cedula\": \"11111111\",\n      \"full_name\": \"María López\",\n      \"address\": \"Calle 1 #2-3\",\n      \"phone\": \"3001234567\",\n      \"email\": \"maria@mail.com\",\n      \"created_at\": \"2024-01-01T00:00:00.000Z\"\n    },\n    {\n      \"cedula\": \"22222222\",\n      \"full_name\": \"Carlos García\",\n      \"address\": \"Carrera 5 #10-20\",\n      \"phone\": \"3109876543\",\n      \"email\": \"carlos@mail.com\",\n      \"created_at\": \"2024-01-02T00:00:00.000Z\"\n    }\n  ],\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"document_id\": \"11111111\",\n      \"full_name\": \"Mary Lopez\",\n      \"address\": \"123 Main St\",\n      \"phone\": \"3001234567\",\n      \"email\": \"mary@mail.com\",\n      \"created_at\": \"2024-01-01T00:00:00.000Z\"\n    },\n    {\n      \"document_id\": \"22222222\",\n      \"full_name\": \"Charles Garcia\",\n      \"address\": \"456 Oak Ave\",\n      \"phone\": \"3109876543\",\n      \"email\": \"charles@mail.com\",\n      \"created_at\": \"2024-01-02T00:00:00.000Z\"\n    }\n  ],\n  \"error\": null\n}"
 						},
 						{
 							"name": "200 — Empty List",
@@ -483,7 +483,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Internal server error\"\n}"
 						}
 					]
 				},
@@ -505,7 +505,7 @@
 									"",
 									"pm.test('Response data has updated fields', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.data).to.have.property('cedula');",
+									"    pm.expect(jsonData.data).to.have.property('document_id');",
 									"    pm.expect(jsonData.data).to.have.property('full_name');",
 									"    pm.expect(jsonData.data).to.have.property('address');",
 									"    pm.expect(jsonData.data).to.have.property('phone');",
@@ -528,7 +528,7 @@
 							{
 								"key": "X-User-Id",
 								"value": "12345678",
-								"description": "Cédula of the authenticated user (injected by API Gateway)."
+								"description": "Document ID of the authenticated user (injected by API Gateway)."
 							},
 							{
 								"key": "X-Internal",
@@ -538,7 +538,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López Actualizada\",\n  \"address\": \"Nueva dirección\",\n  \"phone\": \"3109876543\",\n  \"email\": \"marianew@mail.com\"\n}",
+							"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Mary Lopez Updated\",\n  \"address\": \"789 Pine Rd\",\n  \"phone\": \"3109876543\",\n  \"email\": \"marynew@mail.com\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -550,7 +550,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["customers", "update"]
 						},
-						"description": "## Update Customer\n\nUpdates an existing customer's information. The `cedula` field is used as the identifier and **cannot be changed**.\n\n### Authentication\nMust come through the API Gateway (headers `X-User-Id`, `X-Internal`).\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `cedula` | string | Yes | National ID. Used to identify the customer. Cannot be changed. |\n| `full_name` | string | Yes | Updated full name. Max 100 chars. |\n| `address` | string | Yes | Updated address. Max 200 chars. |\n| `phone` | string | Yes | Updated phone number. Max 20 chars. |\n| `email` | string | Yes | Updated email address. Max 100 chars. |\n\n### Validation Rules\n- All fields are **required** and must be **non-empty**\n- The customer with the given `cedula` must exist\n- `cedula` is the identifier — only `full_name`, `address`, `phone`, and `email` are updated\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | Customer updated successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 404 Not Found | No customer with that cédula |\n| 500 Internal Server Error | DB error |"
+						"description": "## Update Customer\n\nUpdates an existing customer's information. The `document_id` field is used as the identifier and **cannot be changed**.\n\n### Authentication\nMust come through the API Gateway (headers `X-User-Id`, `X-Internal`).\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| `document_id` | string | Yes | National ID. Used to identify the customer. Cannot be changed. |\n| `full_name` | string | Yes | Updated full name. Max 100 chars. |\n| `address` | string | Yes | Updated address. Max 200 chars. |\n| `phone` | string | Yes | Updated phone number. Max 20 chars. |\n| `email` | string | Yes | Updated email address. Max 100 chars. |\n\n### Validation Rules\n- All fields are **required** and must be **non-empty**\n- The customer with the given `document_id` must exist\n- `document_id` is the identifier — only `full_name`, `address`, `phone`, and `email` are updated\n\n### Responses\n| Status | Condition |\n|---|---|\n| 200 OK | Customer updated successfully |\n| 400 Bad Request | Missing or empty required fields |\n| 404 Not Found | No customer with that document ID |\n| 500 Internal Server Error | DB error |"
 					},
 					"response": [
 						{
@@ -564,7 +564,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López Actualizada\",\n  \"address\": \"Nueva dirección\",\n  \"phone\": \"3109876543\",\n  \"email\": \"marianew@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Mary Lopez Updated\",\n  \"address\": \"789 Pine Rd\",\n  \"phone\": \"3109876543\",\n  \"email\": \"marynew@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -579,7 +579,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"cedula\": \"11111111\",\n    \"full_name\": \"María López Actualizada\",\n    \"address\": \"Nueva dirección\",\n    \"phone\": \"3109876543\",\n    \"email\": \"marianew@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"document_id\": \"11111111\",\n    \"full_name\": \"Mary Lopez Updated\",\n    \"address\": \"789 Pine Rd\",\n    \"phone\": \"3109876543\",\n    \"email\": \"marynew@mail.com\",\n    \"created_at\": \"2024-01-01T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
 						},
 						{
 							"name": "400 — Missing Required Fields",
@@ -592,7 +592,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -607,7 +607,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
 						},
 						{
 							"name": "404 — Customer Not Found",
@@ -620,7 +620,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"99999999\",\n  \"full_name\": \"No Existe\",\n  \"address\": \"Dirección\",\n  \"phone\": \"3001111111\",\n  \"email\": \"noexiste@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"99999999\",\n  \"full_name\": \"Does Not Exist\",\n  \"address\": \"123 Nowhere St\",\n  \"phone\": \"3001111111\",\n  \"email\": \"noexist@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -635,7 +635,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Cliente no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Customer not found\"\n}"
 						},
 						{
 							"name": "500 — Internal Server Error",
@@ -648,7 +648,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"Test\",\n  \"address\": \"Test\",\n  \"phone\": \"3001111111\",\n  \"email\": \"test@mail.com\"\n}",
+									"raw": "{\n  \"document_id\": \"11111111\",\n  \"full_name\": \"Test\",\n  \"address\": \"Test\",\n  \"phone\": \"3001111111\",\n  \"email\": \"test@mail.com\"\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -663,7 +663,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Internal server error\"\n}"
 						}
 					]
 				},
@@ -688,7 +688,7 @@
 							{
 								"key": "X-User-Id",
 								"value": "12345678",
-								"description": "Cédula of the authenticated user (injected by API Gateway)."
+								"description": "Document ID of the authenticated user (injected by API Gateway)."
 							},
 							{
 								"key": "X-Internal",
@@ -697,11 +697,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/customers/delete/{{test_cedula}}",
+							"raw": "{{base_url}}/customers/delete/{{test_document_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["customers", "delete", "{{test_cedula}}"]
+							"path": ["customers", "delete", "{{test_document_id}}"]
 						},
-						"description": "## Delete Customer\n\nDeletes a customer by their cédula (national ID).\n\n### Authentication\nMust come through the API Gateway.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The customer's cédula (national ID number) |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 204 No Content | Customer deleted successfully (empty body) |\n| 404 Not Found | No customer with that cédula |\n| 500 Internal Server Error | Database error |\n\n### Notes\n- On success, the response body is empty (HTTP 204)\n- The customer must exist before deletion"
+						"description": "## Delete Customer\n\nDeletes a customer by their document ID.\n\n### Authentication\nMust come through the API Gateway.\n\n### Path Parameters\n| Parameter | Type | Required | Description |\n|---|---|---|---|\n| `id` | string | Yes | The customer's document ID |\n\n### Responses\n| Status | Condition |\n|---|---|\n| 204 No Content | Customer deleted successfully (empty body) |\n| 404 Not Found | No customer with that document ID |\n| 500 Internal Server Error | Database error |\n\n### Notes\n- On success, the response body is empty (HTTP 204)\n- The customer must exist before deletion"
 					},
 					"response": [
 						{
@@ -744,7 +744,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Cliente no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Customer not found\"\n}"
 						},
 						{
 							"name": "500 — Internal Server Error",
@@ -766,7 +766,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Error interno del servidor\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Internal server error\"\n}"
 						}
 					]
 				}
@@ -794,7 +794,7 @@
 									"",
 									"pm.test('Response has unauthorized error', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.eql('Acceso no autorizado');",
+									"    pm.expect(jsonData.error).to.eql('Unauthorized access');",
 									"});"
 								],
 								"type": "text/javascript"
@@ -809,7 +809,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["customers", "list"]
 						},
-						"description": "## Unauthorized Access Test\n\nTests that the service correctly rejects requests that do not include the `X-Internal: true` header. This simulates a direct request to the service that bypasses the API Gateway.\n\n### Expected Behavior\nThe service should return `401 Unauthorized` with:\n```json\n{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Acceso no autorizado\"\n}\n```\n\n### Notes\n- All CRUD endpoints are protected by the `requireInternal` middleware\n- Only the `/health` endpoint is accessible without the `X-Internal` header"
+						"description": "## Unauthorized Access Test\n\nTests that the service correctly rejects requests that do not include the `X-Internal: true` header. This simulates a direct request to the service that bypasses the API Gateway.\n\n### Expected Behavior\nThe service should return `401 Unauthorized` with:\n```json\n{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Unauthorized access\"\n}\n```\n\n### Notes\n- All CRUD endpoints are protected by the `requireInternal` middleware\n- Only the `/health` endpoint is accessible without the `X-Internal` header"
 					},
 					"response": [
 						{
@@ -829,7 +829,7 @@
 							"header": [
 								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Acceso no autorizado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Unauthorized access\"\n}"
 						}
 					]
 				}

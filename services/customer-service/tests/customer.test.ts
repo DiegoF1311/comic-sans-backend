@@ -25,25 +25,25 @@ describe('CustomerHandler', () => {
   });
 
   const sampleCustomer = {
-    cedula: '11111111',
-    full_name: 'María López',
-    address: 'Calle 1 #2-3',
+    document_id: '11111111',
+    full_name: 'Mary Lopez',
+    address: '123 Main St',
     phone: '3001234567',
-    email: 'maria@mail.com',
+    email: 'mary@mail.com',
     created_at: new Date('2024-01-01T00:00:00.000Z'),
   };
 
   // SP2-QA-01
   test('createCustomer_success', async () => {
-    repository.findByCedula.mockResolvedValue(null);
+    repository.findByDocumentId.mockResolvedValue(null);
     repository.create.mockResolvedValue(sampleCustomer as any);
 
     const req = mockRequest({
-      cedula: '11111111',
-      full_name: 'María López',
-      address: 'Calle 1 #2-3',
+      document_id: '11111111',
+      full_name: 'Mary Lopez',
+      address: '123 Main St',
       phone: '3001234567',
-      email: 'maria@mail.com',
+      email: 'mary@mail.com',
     });
     const res = mockResponse();
 
@@ -55,7 +55,7 @@ describe('CustomerHandler', () => {
 
   // SP2-QA-02
   test('createCustomer_missingFields', async () => {
-    const req = mockRequest({ cedula: '11111111' });
+    const req = mockRequest({ document_id: '11111111' });
     const res = mockResponse();
 
     await handler.create(req as Request, res as Response);
@@ -64,13 +64,13 @@ describe('CustomerHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       data: null,
-      error: 'Todos los campos son requeridos',
+      error: 'All fields are required',
     });
   });
 
   // SP2-QA-03 / SP4-QA-01
   test('getCustomer_found', async () => {
-    repository.findByCedula.mockResolvedValue(sampleCustomer as any);
+    repository.findByDocumentId.mockResolvedValue(sampleCustomer as any);
 
     const req = mockRequest({}, { id: '11111111' });
     const res = mockResponse();
@@ -83,7 +83,7 @@ describe('CustomerHandler', () => {
 
   // SP2-QA-04 / SP4-QA-02
   test('getCustomer_notFound', async () => {
-    repository.findByCedula.mockResolvedValue(null);
+    repository.findByDocumentId.mockResolvedValue(null);
 
     const req = mockRequest({}, { id: '99999999' });
     const res = mockResponse();
@@ -94,22 +94,22 @@ describe('CustomerHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       data: null,
-      error: 'Cliente no encontrado',
+      error: 'Customer not found',
     });
   });
 
   // SP2-QA-05
   test('updateCustomer_success', async () => {
-    const updatedCustomer = { ...sampleCustomer, full_name: 'María López Actualizada' };
-    repository.findByCedula.mockResolvedValue(sampleCustomer as any);
+    const updatedCustomer = { ...sampleCustomer, full_name: 'Mary Lopez Updated' };
+    repository.findByDocumentId.mockResolvedValue(sampleCustomer as any);
     repository.update.mockResolvedValue(updatedCustomer as any);
 
     const req = mockRequest({
-      cedula: '11111111',
-      full_name: 'María López Actualizada',
-      address: 'Calle 1 #2-3',
+      document_id: '11111111',
+      full_name: 'Mary Lopez Updated',
+      address: '123 Main St',
       phone: '3001234567',
-      email: 'maria@mail.com',
+      email: 'mary@mail.com',
     });
     const res = mockResponse();
 
@@ -121,7 +121,7 @@ describe('CustomerHandler', () => {
 
   // SP2-QA-06
   test('updateCustomer_missingFields', async () => {
-    const req = mockRequest({ cedula: '11111111' });
+    const req = mockRequest({ document_id: '11111111' });
     const res = mockResponse();
 
     await handler.update(req as Request, res as Response);
@@ -130,13 +130,13 @@ describe('CustomerHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       data: null,
-      error: 'Todos los campos son requeridos',
+      error: 'All fields are required',
     });
   });
 
   // SP2-QA-07
   test('deleteCustomer_success', async () => {
-    repository.findByCedula.mockResolvedValue(sampleCustomer as any);
+    repository.findByDocumentId.mockResolvedValue(sampleCustomer as any);
     repository.delete.mockResolvedValue(undefined);
 
     const req = mockRequest({}, { id: '11111111' });
@@ -150,7 +150,7 @@ describe('CustomerHandler', () => {
 
   // SP2-QA-08
   test('deleteCustomer_notFound', async () => {
-    repository.findByCedula.mockResolvedValue(null);
+    repository.findByDocumentId.mockResolvedValue(null);
 
     const req = mockRequest({}, { id: '99999999' });
     const res = mockResponse();
@@ -161,7 +161,7 @@ describe('CustomerHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       data: null,
-      error: 'Cliente no encontrado',
+      error: 'Customer not found',
     });
   });
 
