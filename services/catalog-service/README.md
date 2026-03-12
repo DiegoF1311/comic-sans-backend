@@ -1,6 +1,6 @@
 # catalog-service
 
-CRUD de proveedores y carga masiva de productos desde CSV.
+Supplier CRUD and bulk product upload via CSV.
 
 ## Run
 

@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "catalog-service-tienda-generica",
-		"name": "Catalog Service — Tienda Genérica",
-		"description": "# Catalog Service API Documentation\n\n## Overview\nThe **catalog-service** is a Go microservice (port **3003**) responsible for CRUD operations on suppliers and bulk CSV upload of products within the Tienda Genérica backend system. It uses **Gin** as the HTTP framework, **GORM** as the ORM, and **MySQL 8.0** (`db_catalog` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cédula of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Models\n\n### `suppliers` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| nit | VARCHAR(20) | PRIMARY KEY | Supplier tax ID |\n| supplier_name | VARCHAR(100) | NOT NULL | Supplier name |\n| address | VARCHAR(200) | NOT NULL | Address |\n| phone | VARCHAR(20) | NOT NULL | Phone number |\n| city | VARCHAR(100) | NOT NULL | City |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n### `products` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| product_code | VARCHAR(20) | PRIMARY KEY | Product code |\n| product_name | VARCHAR(100) | NOT NULL | Product name |\n| nit_supplier | VARCHAR(20) | NOT NULL, FK → suppliers(nit) | Supplier NIT |\n| purchase_price | DECIMAL(10,2) | NOT NULL | Purchase price |\n| purchase_vat | DECIMAL(5,2) | NOT NULL | VAT percentage |\n| sale_price | DECIMAL(10,2) | NOT NULL | Sale price |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n## CSV Upload Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Manzanas Rojas,900123456,2500,19,4000\n```",
+		"name": "Catalog Service — Tienda Generica",
+		"description": "# Catalog Service API Documentation\n\n## Overview\nThe **catalog-service** is a Go microservice (port **3003**) responsible for CRUD operations on suppliers and bulk CSV upload of products within the Tienda Generica backend system. It uses **Gin** as the HTTP framework, **GORM** as the ORM, and **MySQL 8.0** (`db_catalog` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cedula of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Models\n\n### `suppliers` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| nit | VARCHAR(20) | PRIMARY KEY | Supplier tax ID |\n| supplier_name | VARCHAR(100) | NOT NULL | Supplier name |\n| address | VARCHAR(200) | NOT NULL | Address |\n| phone | VARCHAR(20) | NOT NULL | Phone number |\n| city | VARCHAR(100) | NOT NULL | City |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n### `products` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| product_code | VARCHAR(20) | PRIMARY KEY | Product code |\n| product_name | VARCHAR(100) | NOT NULL | Product name |\n| nit_supplier | VARCHAR(20) | NOT NULL, FK → suppliers(nit) | Supplier NIT |\n| purchase_price | DECIMAL(10,2) | NOT NULL | Purchase price |\n| purchase_vat | DECIMAL(5,2) | NOT NULL | VAT percentage |\n| sale_price | DECIMAL(10,2) | NOT NULL | Sale price |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n## CSV Upload Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Red Apples,900123456,2500,19,4000\n```",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -111,7 +111,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogotá\"\n}"
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogota\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/suppliers/save",
@@ -133,7 +133,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogotá\"\n}"
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogota\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/suppliers/save",
@@ -150,7 +150,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Frutas S.A.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogotá\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogota\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -277,7 +277,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Otra Empresa S.A.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellín\"\n}"
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Another Company Inc.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellin\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/suppliers/save",
@@ -299,7 +299,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Otra Empresa S.A.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellín\"\n}"
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Another Company Inc.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellin\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/suppliers/save",
@@ -382,7 +382,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Frutas S.A.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogotá\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogota\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -512,7 +512,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"nit\": \"900123456\",\n      \"supplier_name\": \"Frutas S.A.\",\n      \"address\": \"Carrera 10 #5-20\",\n      \"phone\": \"6012345678\",\n      \"city\": \"Bogotá\",\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"nit\": \"900123456\",\n      \"supplier_name\": \"Fruits Inc.\",\n      \"address\": \"Carrera 10 #5-20\",\n      \"phone\": \"6012345678\",\n      \"city\": \"Bogota\",\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -534,8 +534,8 @@
 									"",
 									"pm.test('Supplier data is updated', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.data.supplier_name).to.equal('Frutas S.A. Actualizado');",
-									"    pm.expect(jsonData.data.city).to.equal('Medellín');",
+									"    pm.expect(jsonData.data.supplier_name).to.equal('Fruits Inc. Updated');",
+									"    pm.expect(jsonData.data.city).to.equal('Medellin');",
 									"});",
 									"",
 									"pm.test('Error is null', function () {",
@@ -557,7 +557,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A. Actualizado\",\n  \"address\": \"Nueva dirección\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellín\"\n}"
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc. Updated\",\n  \"address\": \"New address\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellin\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/suppliers/update",
@@ -579,7 +579,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A. Actualizado\",\n  \"address\": \"Nueva dirección\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellín\"\n}"
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc. Updated\",\n  \"address\": \"New address\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellin\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/suppliers/update",
@@ -596,7 +596,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Frutas S.A. Actualizado\",\n    \"address\": \"Nueva dirección\",\n    \"phone\": \"6019999999\",\n    \"city\": \"Medellín\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc. Updated\",\n    \"address\": \"New address\",\n    \"phone\": \"6019999999\",\n    \"city\": \"Medellin\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -640,7 +640,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A.\"\n}"
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/suppliers/update",
@@ -662,7 +662,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Frutas S.A.\"\n}"
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/suppliers/update",
@@ -723,7 +723,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"No Existe S.A.\",\n  \"address\": \"Dirección\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
+							"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"Does Not Exist Inc.\",\n  \"address\": \"Address\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/suppliers/update",
@@ -745,7 +745,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"No Existe S.A.\",\n  \"address\": \"Dirección\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
+									"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"Does Not Exist Inc.\",\n  \"address\": \"Address\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
 								},
 								"url": {
 									"raw": "{{base_url}}/suppliers/update",
@@ -939,7 +939,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["products", "upload"]
 						},
-						"description": "## Upload CSV — Success\n\nUploads a CSV file with product data. Products are inserted or updated based on `product_code`.\n\n### Prerequisites\n- At least one supplier must exist in the database (the `nit_supplier` in the CSV must match an existing supplier)\n\n### Request\n- `Content-Type: multipart/form-data`\n- Field name: `file`\n\n### CSV Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Manzanas Rojas,900123456,2500,19,4000\n1002,Plátanos,900123456,1800,19,3000\n```\n\n### Processing Rules\n- Each row is validated independently\n- If `nit_supplier` does not exist → row is rejected (not inserted)\n- If `product_code` already exists → UPDATE\n- If `product_code` does not exist → INSERT\n- Processing continues even if some rows are rejected\n\n### Response\n- **200 OK** — Upload result with counts of inserted, updated, and rejected rows\n\n### Test Case\nSP3-QA-01"
+						"description": "## Upload CSV — Success\n\nUploads a CSV file with product data. Products are inserted or updated based on `product_code`.\n\n### Prerequisites\n- At least one supplier must exist in the database (the `nit_supplier` in the CSV must match an existing supplier)\n\n### Request\n- `Content-Type: multipart/form-data`\n- Field name: `file`\n\n### CSV Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Red Apples,900123456,2500,19,4000\n1002,Bananas,900123456,1800,19,3000\n```\n\n### Processing Rules\n- Each row is validated independently\n- If `nit_supplier` does not exist → row is rejected (not inserted)\n- If `product_code` already exists → UPDATE\n- If `product_code` does not exist → INSERT\n- Processing continues even if some rows are rejected\n\n### Response\n- **200 OK** — Upload result with counts of inserted, updated, and rejected rows\n\n### Test Case\nSP3-QA-01"
 					},
 					"response": [
 						{
@@ -1294,7 +1294,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"product_code\": \"1001\",\n    \"product_name\": \"Manzanas Rojas\",\n    \"nit_supplier\": \"900123456\",\n    \"purchase_price\": 2500.00,\n    \"purchase_vat\": 19.00,\n    \"sale_price\": 4000.00,\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"product_code\": \"1001\",\n    \"product_name\": \"Red Apples\",\n    \"nit_supplier\": \"900123456\",\n    \"purchase_price\": 2500.00,\n    \"purchase_vat\": 19.00,\n    \"sale_price\": 4000.00,\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -1424,7 +1424,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 2500.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 4000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Plátanos\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 1800.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 3000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Red Apples\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 2500.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 4000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Bananas\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 1800.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 3000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
 						}
 					]
 				}
