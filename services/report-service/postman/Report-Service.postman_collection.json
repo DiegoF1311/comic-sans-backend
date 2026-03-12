@@ -1,0 +1,348 @@
+{
+	"info": {
+		"_postman_id": "report-service-comic-sans",
+		"name": "Report Service — Comic Sans",
+		"description": "# Report Service API Documentation\n\n## Overview\nThe **report-service** is a TypeScript microservice (port **3006**) that generates aggregated reports by calling other services via HTTP. It has **no database** of its own.\n\n## Architecture\n```\nHandler → HTTP Client → other services (no DB layer)\n```\n\n## Dependencies\n- **user-service** (port 3002) — for user listing\n- **customer-service** (port 3004) — for customer listing\n- **sales-service** (port 3005) — for sales by customer\n\n## Internal Access\nAll endpoints require `X-Internal: true` header.\n\n## Standard Response Envelope\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3006",
+			"type": "string",
+			"description": "Base URL of the report-service (direct access)"
+		},
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway (production entry point)"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Health Check\n\nReturns the health status of the report-service.\n\n### Authentication\nNone required.\n\n### Response\n- **200 OK** — Service is healthy"
+					},
+					"response": [
+						{
+							"name": "200 — Service Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"report-service\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Service health and liveness probe."
+		},
+		{
+			"name": "Reports",
+			"item": [
+				{
+					"name": "List Users (Proxy)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["users", "list"]
+						},
+						"description": "## List Users — Proxy (SP5-QA-01)\n\nProxy endpoint that forwards the request to user-service's `/users/list` and returns the response as-is.\n\n### Prerequisites\n- **user-service** must be running on port 3002\n\n### Response\n- **200 OK** — Array of users (same format as user-service)"
+					},
+					"response": [
+						{
+							"name": "200 — Users List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["users", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"cedula\": \"0\",\n      \"full_name\": \"Administrador Inicial\",\n      \"username\": \"admininicial\",\n      \"email\": \"admin@tienda.com\",\n      \"is_active\": true,\n      \"created_at\": \"2024-01-01T00:00:00.000Z\"\n    }\n  ],\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "List Customers (Proxy)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/customers/list",
+							"host": ["{{base_url}}"],
+							"path": ["customers", "list"]
+						},
+						"description": "## List Customers — Proxy (SP5-QA-02)\n\nProxy endpoint that forwards the request to customer-service's `/customers/list` and returns the response as-is.\n\n### Prerequisites\n- **customer-service** must be running on port 3004\n\n### Response\n- **200 OK** — Array of customers (same format as customer-service)"
+					},
+					"response": [
+						{
+							"name": "200 — Customers List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/customers/list",
+									"host": ["{{base_url}}"],
+									"path": ["customers", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"cedula\": \"11111111\",\n      \"full_name\": \"María López\",\n      \"address\": \"Calle 1 #2-3\",\n      \"phone\": \"3001234567\",\n      \"email\": \"maria@mail.com\",\n      \"created_at\": \"2024-01-01T00:00:00.000Z\"\n    }\n  ],\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Sales By Customer Report — With Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Each item has required fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.length > 0) {",
+									"        var item = jsonData.data[0];",
+									"        pm.expect(item).to.have.property('customer_id');",
+									"        pm.expect(item).to.have.property('full_name');",
+									"        pm.expect(item).to.have.property('total_purchases');",
+									"    }",
+									"});",
+									"",
+									"pm.test('Only customers with purchases are included', function () {",
+									"    var jsonData = pm.response.json();",
+									"    jsonData.data.forEach(function(item) {",
+									"        pm.expect(Number(item.total_purchases)).to.be.greaterThan(0);",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/reports/sales-by-customer",
+							"host": ["{{base_url}}"],
+							"path": ["reports", "sales-by-customer"]
+						},
+						"description": "## Sales By Customer Report (SP5-QA-03)\n\nGenerates an aggregated report of total purchases per customer.\n\n### Flow\n1. Fetches all customers from customer-service\n2. Calls sales-service in parallel (`Promise.all`) for each customer\n3. Filters out customers with no purchases (`total_purchases > 0`)\n\n### Prerequisites\n- **customer-service** must be running on port 3004\n- **sales-service** must be running on port 3005\n\n### Response\n- **200 OK** — Array of customers with their total purchases\n- Returns `[]` if no customers have purchases"
+					},
+					"response": [
+						{
+							"name": "200 — Report With Data",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/reports/sales-by-customer",
+									"host": ["{{base_url}}"],
+									"path": ["reports", "sales-by-customer"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"customer_id\": \"11111111\",\n      \"full_name\": \"María López\",\n      \"total_purchases\": 45000.00\n    },\n    {\n      \"customer_id\": \"22222222\",\n      \"full_name\": \"Carlos Ruiz\",\n      \"total_purchases\": 12000.00\n    }\n  ],\n  \"error\": null\n}"
+						},
+						{
+							"name": "200 — Empty Report",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/reports/sales-by-customer",
+									"host": ["{{base_url}}"],
+									"path": ["reports", "sales-by-customer"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [],\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Access Without X-Internal Header",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Acceso no autorizado', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Acceso no autorizado');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/reports/sales-by-customer",
+							"host": ["{{base_url}}"],
+							"path": ["reports", "sales-by-customer"]
+						},
+						"description": "## Access Without X-Internal Header\n\nAttempts to access an endpoint without the required `X-Internal: true` header.\n\n### Expected Behavior\n- Returns **401 Unauthorized** with `\"Acceso no autorizado\"`"
+					},
+					"response": [
+						{
+							"name": "401 — Unauthorized",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/reports/sales-by-customer",
+									"host": ["{{base_url}}"],
+									"path": ["reports", "sales-by-customer"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Acceso no autorizado\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Aggregated report endpoints that call other microservices."
+		}
+	]
+}

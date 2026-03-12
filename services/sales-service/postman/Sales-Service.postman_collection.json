@@ -1,0 +1,571 @@
+{
+	"info": {
+		"_postman_id": "sales-service-comic-sans",
+		"name": "Sales Service — Comic Sans",
+		"description": "# Sales Service API Documentation\n\n## Overview\nThe **sales-service** is a TypeScript microservice (port **3005**) responsible for registering sales with VAT calculation, consecutive sale code generation (`V001`, `V002`, ...), and atomic insertion of sale + details.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\n## Database\n- MySQL 8.0 — schema `db_sales`\n- Tables: `sales` (sale_code PK), `sale_details` (FK to sales)\n\n## Internal Access\nAll endpoints require `X-Internal: true` header.\n\n## Standard Response Envelope\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3005",
+			"type": "string",
+			"description": "Base URL of the sales-service (direct access)"
+		},
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway (production entry point)"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Health Check\n\nReturns the health status of the sales-service.\n\n### Authentication\nNone required.\n\n### Response\n- **200 OK** — Service is healthy"
+					},
+					"response": [
+						{
+							"name": "200 — Service Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"sales-service\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Service health and liveness probe."
+		},
+		{
+			"name": "Sales",
+			"item": [
+				{
+					"name": "Create Sale — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains sale data', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('sale_code');",
+									"    pm.expect(jsonData.data).to.have.property('customer_id');",
+									"    pm.expect(jsonData.data).to.have.property('total_sale');",
+									"    pm.expect(jsonData.data).to.have.property('total_vat');",
+									"    pm.expect(jsonData.data).to.have.property('total_with_vat');",
+									"    pm.expect(jsonData.data).to.have.property('details');",
+									"});",
+									"",
+									"pm.test('Sale code starts with V', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.sale_code).to.match(/^V\\d{3}$/);",
+									"});",
+									"",
+									"pm.test('Details array has correct length', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.details).to.be.an('array').with.lengthOf(2);",
+									"});",
+									"",
+									"pm.test('VAT calculation is correct', function () {",
+									"    var jsonData = pm.response.json();",
+									"    var d = jsonData.data;",
+									"    pm.expect(Number(d.total_sale)).to.equal(17000);",
+									"    pm.expect(Number(d.total_vat)).to.equal(3230);",
+									"    pm.expect(Number(d.total_with_vat)).to.equal(20230);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-Internal", "value": "true" },
+							{ "key": "X-User-Id", "value": "12345678" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"quantity\": 2,\n      \"unit_price\": 4000,\n      \"vat_rate\": 19\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Plátanos\",\n      \"quantity\": 3,\n      \"unit_price\": 3000,\n      \"vat_rate\": 19\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/sales/save",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "save"]
+						},
+						"description": "## Create Sale — Success (SP4-QA-08)\n\nCreates a new sale with line items, automatic VAT calculation, and consecutive sale code generation.\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| customer_id | string | Yes | Customer cedula |\n| details | array | Yes | 1-3 product line items |\n| details[].product_code | string | Yes | Product code |\n| details[].product_name | string | Yes | Product name |\n| details[].quantity | number | Yes | Quantity |\n| details[].unit_price | number | Yes | Unit price |\n| details[].vat_rate | number | Yes | VAT rate percentage |\n\n### Headers\n- `X-User-Id` — injected by gateway, identifies the seller\n\n### Calculations\n- `line_total = unit_price * quantity`\n- `line_vat = line_total * (vat_rate / 100)`\n- `total_sale = sum(line_total)`\n- `total_vat = sum(line_vat)`\n- `total_with_vat = total_sale + total_vat`\n\n### Response\n- **201 Created** — Sale created with calculated totals"
+					},
+					"response": [
+						{
+							"name": "201 — Sale Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-Internal", "value": "true" },
+									{ "key": "X-User-Id", "value": "12345678" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"quantity\": 2,\n      \"unit_price\": 4000,\n      \"vat_rate\": 19\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Plátanos\",\n      \"quantity\": 3,\n      \"unit_price\": 3000,\n      \"vat_rate\": 19\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/sales/save",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "save"]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"sale_code\": \"V001\",\n    \"customer_id\": \"11111111\",\n    \"user_id\": \"12345678\",\n    \"total_sale\": 17000.00,\n    \"total_vat\": 3230.00,\n    \"total_with_vat\": 20230.00,\n    \"created_at\": \"2024-01-01T00:00:00.000Z\",\n    \"details\": [\n      {\n        \"product_code\": \"1001\",\n        \"product_name\": \"Manzanas Rojas\",\n        \"quantity\": 2,\n        \"unit_price\": 4000.00,\n        \"vat_rate\": 19.00,\n        \"line_total\": 8000.00,\n        \"line_vat\": 1520.00\n      },\n      {\n        \"product_code\": \"1002\",\n        \"product_name\": \"Plátanos\",\n        \"quantity\": 3,\n        \"unit_price\": 3000.00,\n        \"vat_rate\": 19.00,\n        \"line_total\": 9000.00,\n        \"line_vat\": 1710.00\n      }\n    ]\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Sale — Missing Customer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates customer required', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Customer is required');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-Internal", "value": "true" },
+							{ "key": "X-User-Id", "value": "12345678" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"details\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"quantity\": 2,\n      \"unit_price\": 4000,\n      \"vat_rate\": 19\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/sales/save",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "save"]
+						},
+						"description": "## Create Sale — Missing Customer (SP4-QA-10)\n\nAttempts to create a sale without the required `customer_id` field.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Customer is required\"`"
+					},
+					"response": [
+						{
+							"name": "400 — Missing Customer",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-Internal", "value": "true" },
+									{ "key": "X-User-Id", "value": "12345678" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"details\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"quantity\": 2,\n      \"unit_price\": 4000,\n      \"vat_rate\": 19\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/sales/save",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "save"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Customer is required\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Sale — Empty Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates products required', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Must include between 1 and 3 products');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-Internal", "value": "true" },
+							{ "key": "X-User-Id", "value": "12345678" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/sales/save",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "save"]
+						},
+						"description": "## Create Sale — Empty Details (SP4-QA-09)\n\nAttempts to create a sale with an empty `details` array.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Must include between 1 and 3 products\"`"
+					},
+					"response": [
+						{
+							"name": "400 — Empty Details",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-Internal", "value": "true" },
+									{ "key": "X-User-Id", "value": "12345678" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": []\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/sales/save",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "save"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Must include between 1 and 3 products\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Sale — Too Many Products",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Error message indicates products limit', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Must include between 1 and 3 products');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "X-Internal", "value": "true" },
+							{ "key": "X-User-Id", "value": "12345678" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": [\n    { \"product_code\": \"1001\", \"product_name\": \"Producto 1\", \"quantity\": 1, \"unit_price\": 1000, \"vat_rate\": 19 },\n    { \"product_code\": \"1002\", \"product_name\": \"Producto 2\", \"quantity\": 1, \"unit_price\": 2000, \"vat_rate\": 19 },\n    { \"product_code\": \"1003\", \"product_name\": \"Producto 3\", \"quantity\": 1, \"unit_price\": 3000, \"vat_rate\": 19 },\n    { \"product_code\": \"1004\", \"product_name\": \"Producto 4\", \"quantity\": 1, \"unit_price\": 4000, \"vat_rate\": 19 }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/sales/save",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "save"]
+						},
+						"description": "## Create Sale — Too Many Products\n\nAttempts to create a sale with more than 3 products.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Must include between 1 and 3 products\"`"
+					},
+					"response": [
+						{
+							"name": "400 — Too Many Products",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" },
+									{ "key": "X-Internal", "value": "true" },
+									{ "key": "X-User-Id", "value": "12345678" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": [\n    { \"product_code\": \"1001\", \"product_name\": \"Producto 1\", \"quantity\": 1, \"unit_price\": 1000, \"vat_rate\": 19 },\n    { \"product_code\": \"1002\", \"product_name\": \"Producto 2\", \"quantity\": 1, \"unit_price\": 2000, \"vat_rate\": 19 },\n    { \"product_code\": \"1003\", \"product_name\": \"Producto 3\", \"quantity\": 1, \"unit_price\": 3000, \"vat_rate\": 19 },\n    { \"product_code\": \"1004\", \"product_name\": \"Producto 4\", \"quantity\": 1, \"unit_price\": 4000, \"vat_rate\": 19 }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/sales/save",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "save"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Must include between 1 and 3 products\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List Sales",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/sales/list",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "list"]
+						},
+						"description": "## List Sales\n\nRetrieves all sales with their details (eager relation). Returns `[]` if no sales exist.\n\n### Response\n- **200 OK** — Array of sales with nested details"
+					},
+					"response": [
+						{
+							"name": "200 — Sales List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/sales/list",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"sale_code\": \"V001\",\n      \"customer_id\": \"11111111\",\n      \"user_id\": \"12345678\",\n      \"total_sale\": 17000.00,\n      \"total_vat\": 3230.00,\n      \"total_with_vat\": 20230.00,\n      \"created_at\": \"2024-01-01T00:00:00.000Z\",\n      \"details\": [\n        {\n          \"id\": 1,\n          \"sale_code\": \"V001\",\n          \"product_code\": \"1001\",\n          \"product_name\": \"Manzanas Rojas\",\n          \"quantity\": 2,\n          \"unit_price\": 4000.00,\n          \"vat_rate\": 19.00,\n          \"line_total\": 8000.00,\n          \"line_vat\": 1520.00\n        }\n      ]\n    }\n  ],\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Sales By Customer — With Sales",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains summary data', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('customer_id');",
+									"    pm.expect(jsonData.data).to.have.property('total_purchases');",
+									"    pm.expect(jsonData.data).to.have.property('sale_count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/sales/by-customer/11111111",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "by-customer", "11111111"]
+						},
+						"description": "## Get Sales By Customer — With Sales\n\nRetrieves sales summary for a customer (used internally by report-service).\n\n### Parameters\n- `:customer_id` — Customer cedula\n\n### Response\n- **200 OK** — Summary with total_purchases and sale_count"
+					},
+					"response": [
+						{
+							"name": "200 — Customer Sales Summary",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/sales/by-customer/11111111",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "by-customer", "11111111"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"customer_id\": \"11111111\",\n    \"total_purchases\": 45000.00,\n    \"sale_count\": 3\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Sales By Customer — No Sales",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Total purchases is 0', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Number(jsonData.data.total_purchases)).to.equal(0);",
+									"    pm.expect(jsonData.data.sale_count).to.equal(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "X-Internal", "value": "true" }
+						],
+						"url": {
+							"raw": "{{base_url}}/sales/by-customer/99999999",
+							"host": ["{{base_url}}"],
+							"path": ["sales", "by-customer", "99999999"]
+						},
+						"description": "## Get Sales By Customer — No Sales\n\nRetrieves sales summary for a customer with no purchases.\n\n### Expected Behavior\n- Returns **200 OK** with `total_purchases: 0` and `sale_count: 0`"
+					},
+					"response": [
+						{
+							"name": "200 — No Sales",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "X-Internal", "value": "true" }
+								],
+								"url": {
+									"raw": "{{base_url}}/sales/by-customer/99999999",
+									"host": ["{{base_url}}"],
+									"path": ["sales", "by-customer", "99999999"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"customer_id\": \"99999999\",\n    \"total_purchases\": 0,\n    \"sale_count\": 0\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Sale registration and querying endpoints."
+		}
+	]
+}
