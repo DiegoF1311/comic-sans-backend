@@ -18,14 +18,14 @@ func main() {
 
 	db, err := gorm.Open(mysql.Open(cfg.DSN()), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Error al conectar a la base de datos: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	if err := db.AutoMigrate(&domain.Supplier{}); err != nil {
-		log.Fatalf("Error en AutoMigrate (suppliers): %v", err)
+		log.Fatalf("AutoMigrate failed (suppliers): %v", err)
 	}
 	if err := db.AutoMigrate(&domain.Product{}); err != nil {
-		log.Fatalf("Error en AutoMigrate (products): %v", err)
+		log.Fatalf("AutoMigrate failed (products): %v", err)
 	}
 
 	supplierRepo := repository.NewSupplierRepository(db)
@@ -50,6 +50,6 @@ func main() {
 
 	fmt.Printf("catalog-service running on :%s\n", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Error al iniciar el servidor: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
