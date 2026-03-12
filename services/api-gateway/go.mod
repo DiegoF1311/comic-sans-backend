@@ -1,4 +1,4 @@
-module github.com/tienda-generica/api-gateway
+module github.com/comic-sans/api-gateway
 
 go 1.25.3
 

@@ -5,9 +5,9 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tienda-generica/api-gateway/config"
-	"github.com/tienda-generica/api-gateway/internal/handler"
-	"github.com/tienda-generica/api-gateway/internal/middleware"
+	"github.com/comic-sans/api-gateway/config"
+	"github.com/comic-sans/api-gateway/internal/handler"
+	"github.com/comic-sans/api-gateway/internal/middleware"
 )
 
 func main() {
