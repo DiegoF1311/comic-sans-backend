@@ -1,34 +1,48 @@
-import { Repository } from 'typeorm';
-import { CustomerEntity } from '../entity/CustomerEntity';
-import { AppDataSource } from '../database';
-import { ICustomer, CreateCustomerDto } from '../domain/Customer';
+import { DataSource } from 'typeorm'
+import { CustomerEntity } from '../entity/CustomerEntity'
+import { ICustomer, CreateCustomerDto } from '../domain/Customer'
+import { toCustomer } from '../domain/mappers'
 
-export class CustomerRepository {
-  private repo: Repository<CustomerEntity>;
+export interface ICustomerRepository {
+  findByDocumentId(documentId: string): Promise<ICustomer | null>
+  findAll(): Promise<ICustomer[]>
+  create(data: CreateCustomerDto): Promise<ICustomer>
+  update(documentId: string, data: Omit<CreateCustomerDto, 'document_id'>): Promise<ICustomer>
+  delete(documentId: string): Promise<void>
+}
 
-  constructor() {
-    this.repo = AppDataSource.getRepository(CustomerEntity);
+export class CustomerRepository implements ICustomerRepository {
+  private dataSource: DataSource
+
+  constructor(dataSource: DataSource) {
+    this.dataSource = dataSource
   }
 
   async findByDocumentId(documentId: string): Promise<ICustomer | null> {
-    return this.repo.findOneBy({ document_id: documentId });
+    const entity = await this.dataSource.getRepository(CustomerEntity).findOneBy({ document_id: documentId })
+    return entity ? toCustomer(entity) : null
   }
 
   async findAll(): Promise<ICustomer[]> {
-    return this.repo.find();
+    const entities = await this.dataSource.getRepository(CustomerEntity).find()
+    return entities.map(toCustomer)
   }
 
   async create(data: CreateCustomerDto): Promise<ICustomer> {
-    const customer = this.repo.create(data);
-    return this.repo.save(customer);
+    const repo = this.dataSource.getRepository(CustomerEntity)
+    const entity = repo.create(data)
+    const saved = await repo.save(entity)
+    return toCustomer(saved)
   }
 
   async update(documentId: string, data: Omit<CreateCustomerDto, 'document_id'>): Promise<ICustomer> {
-    await this.repo.update(documentId, data);
-    return (await this.repo.findOneBy({ document_id: documentId }))!;
+    const repo = this.dataSource.getRepository(CustomerEntity)
+    await repo.update(documentId, data)
+    const updated = await repo.findOneByOrFail({ document_id: documentId })
+    return toCustomer(updated)
   }
 
   async delete(documentId: string): Promise<void> {
-    await this.repo.delete(documentId);
+    await this.dataSource.getRepository(CustomerEntity).delete(documentId)
   }
 }

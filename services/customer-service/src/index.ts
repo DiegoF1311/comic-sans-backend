@@ -19,7 +19,7 @@ AppDataSource.initialize()
   .then(() => {
     console.log('Database connected');
 
-    const repository = new CustomerRepository();
+    const repository = new CustomerRepository(AppDataSource);
     const handler = new CustomerHandler(repository);
 
     app.use(customerRoutes(handler));
