@@ -27,27 +27,27 @@ func NewProductHandler(productRepo *repository.ProductRepository, supplierRepo *
 func (h *ProductHandler) Upload(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Debe seleccionar un archivo"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "A file must be selected"})
 		return
 	}
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if ext != ".csv" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "El archivo debe ser formato CSV"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "File must be in CSV format"})
 		return
 	}
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil || len(records) < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Formato de CSV inválido"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Invalid CSV format"})
 		return
 	}
 
 	headerRow := records[0]
 	if len(headerRow) != 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Formato de CSV inválido"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Invalid CSV format"})
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 			result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 				Row:         rowNum,
 				ProductCode: "",
-				Reason:      "número de columnas inválido",
+				Reason:      "invalid number of columns",
 			})
 			continue
 		}
@@ -80,7 +80,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 			result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 				Row:         rowNum,
 				ProductCode: productCode,
-				Reason:      fmt.Sprintf("nit_supplier %s no existe", nitSupplier),
+				Reason:      fmt.Sprintf("nit_supplier %s does not exist", nitSupplier),
 			})
 			continue
 		}
@@ -91,7 +91,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 			result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 				Row:         rowNum,
 				ProductCode: productCode,
-				Reason:      "purchase_price inválido",
+				Reason:      "invalid purchase_price",
 			})
 			continue
 		}
@@ -102,7 +102,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 			result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 				Row:         rowNum,
 				ProductCode: productCode,
-				Reason:      "purchase_vat inválido",
+				Reason:      "invalid purchase_vat",
 			})
 			continue
 		}
@@ -113,7 +113,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 			result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 				Row:         rowNum,
 				ProductCode: productCode,
-				Reason:      "sale_price inválido",
+				Reason:      "invalid sale_price",
 			})
 			continue
 		}
@@ -131,7 +131,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 				result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 					Row:         rowNum,
 					ProductCode: productCode,
-					Reason:      "error al actualizar producto",
+					Reason:      "failed to update product",
 				})
 				continue
 			}
@@ -151,7 +151,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 				result.RejectedRows = append(result.RejectedRows, domain.RejectedRow{
 					Row:         rowNum,
 					ProductCode: productCode,
-					Reason:      "error al insertar producto",
+					Reason:      "failed to insert product",
 				})
 				continue
 			}
@@ -168,10 +168,10 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 	product, err := h.productRepo.FindByCode(code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Producto no encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Product not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 func (h *ProductHandler) List(c *gin.Context) {
 	products, err := h.productRepo.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 

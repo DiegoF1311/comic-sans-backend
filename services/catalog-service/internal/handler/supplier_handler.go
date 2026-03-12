@@ -33,19 +33,19 @@ func (h *SupplierHandler) Health(c *gin.Context) {
 func (h *SupplierHandler) Create(c *gin.Context) {
 	var req domain.CreateSupplierRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Todos los campos son requeridos"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "All fields are required"})
 		return
 	}
 
 	if strings.TrimSpace(req.Nit) == "" || strings.TrimSpace(req.SupplierName) == "" ||
 		strings.TrimSpace(req.Address) == "" || strings.TrimSpace(req.Phone) == "" ||
 		strings.TrimSpace(req.City) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Todos los campos son requeridos"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "All fields are required"})
 		return
 	}
 
 	if existing, _ := h.repo.FindByNit(req.Nit); existing != nil {
-		c.JSON(http.StatusConflict, gin.H{"success": false, "data": nil, "error": "Ya existe un proveedor con ese NIT"})
+		c.JSON(http.StatusConflict, gin.H{"success": false, "data": nil, "error": "A supplier with that NIT already exists"})
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *SupplierHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.repo.Create(&supplier); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error al crear el proveedor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Failed to create supplier"})
 		return
 	}
 
@@ -71,10 +71,10 @@ func (h *SupplierHandler) GetByID(c *gin.Context) {
 	supplier, err := h.repo.FindByNit(nit)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Proveedor no encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Supplier not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 
@@ -84,7 +84,7 @@ func (h *SupplierHandler) GetByID(c *gin.Context) {
 func (h *SupplierHandler) List(c *gin.Context) {
 	suppliers, err := h.repo.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 
@@ -98,24 +98,24 @@ func (h *SupplierHandler) List(c *gin.Context) {
 func (h *SupplierHandler) Update(c *gin.Context) {
 	var req domain.UpdateSupplierRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Todos los campos son requeridos"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "All fields are required"})
 		return
 	}
 
 	if strings.TrimSpace(req.Nit) == "" || strings.TrimSpace(req.SupplierName) == "" ||
 		strings.TrimSpace(req.Address) == "" || strings.TrimSpace(req.Phone) == "" ||
 		strings.TrimSpace(req.City) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "Todos los campos son requeridos"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "data": nil, "error": "All fields are required"})
 		return
 	}
 
 	supplier, err := h.repo.FindByNit(req.Nit)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Proveedor no encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Supplier not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *SupplierHandler) Update(c *gin.Context) {
 	supplier.City = req.City
 
 	if err := h.repo.Update(supplier); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error al actualizar el proveedor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Failed to update supplier"})
 		return
 	}
 
@@ -137,15 +137,15 @@ func (h *SupplierHandler) Delete(c *gin.Context) {
 
 	if _, err := h.repo.FindByNit(nit); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Proveedor no encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "data": nil, "error": "Supplier not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error interno del servidor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Internal server error"})
 		return
 	}
 
 	if err := h.repo.Delete(nit); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Error al eliminar el proveedor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "data": nil, "error": "Failed to delete supplier"})
 		return
 	}
 

@@ -172,7 +172,7 @@
 									"",
 									"pm.test('Error message indicates required fields', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Todos los campos son requeridos');",
+									"    pm.expect(jsonData.error).to.equal('All fields are required');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -201,7 +201,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "save"]
 						},
-						"description": "## Create Supplier — Missing Fields\n\nAttempts to create a supplier with missing required fields.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Todos los campos son requeridos\"`\n\n### Test Case\nSP2-QA-10"
+						"description": "## Create Supplier — Missing Fields\n\nAttempts to create a supplier with missing required fields.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"All fields are required\"`\n\n### Test Case\nSP2-QA-10"
 					},
 					"response": [
 						{
@@ -233,7 +233,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
 						}
 					]
 				},
@@ -255,7 +255,7 @@
 									"",
 									"pm.test('Error message indicates duplicate NIT', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Ya existe un proveedor con ese NIT');",
+									"    pm.expect(jsonData.error).to.equal('A supplier with that NIT already exists');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -284,7 +284,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "save"]
 						},
-						"description": "## Create Supplier — Duplicate NIT\n\nAttempts to create a supplier with a NIT that already exists in the database.\n\n### Prerequisites\n- A supplier with NIT `900123456` must already exist (run \"Create Supplier — Success\" first)\n\n### Expected Behavior\n- Returns **409 Conflict** with `\"Ya existe un proveedor con ese NIT\"`"
+						"description": "## Create Supplier — Duplicate NIT\n\nAttempts to create a supplier with a NIT that already exists in the database.\n\n### Prerequisites\n- A supplier with NIT `900123456` must already exist (run \"Create Supplier — Success\" first)\n\n### Expected Behavior\n- Returns **409 Conflict** with `\"A supplier with that NIT already exists\"`"
 					},
 					"response": [
 						{
@@ -316,7 +316,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Ya existe un proveedor con ese NIT\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"A supplier with that NIT already exists\"\n}"
 						}
 					]
 				},
@@ -402,9 +402,9 @@
 									"    pm.expect(jsonData.success).to.be.false;",
 									"});",
 									"",
-									"pm.test('Error message is Proveedor no encontrado', function () {",
+									"pm.test('Error message is Supplier not found', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Proveedor no encontrado');",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -424,7 +424,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "999999999"]
 						},
-						"description": "## Get Supplier — Not Found\n\nAttempts to retrieve a supplier with a NIT that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Proveedor no encontrado\"`\n\n### Test Case\nSP2-QA-12"
+						"description": "## Get Supplier — Not Found\n\nAttempts to retrieve a supplier with a NIT that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`\n\n### Test Case\nSP2-QA-12"
 					},
 					"response": [
 						{
@@ -447,7 +447,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Proveedor no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
 						}
 					]
 				},
@@ -618,7 +618,7 @@
 									"",
 									"pm.test('Error message indicates required fields', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Todos los campos son requeridos');",
+									"    pm.expect(jsonData.error).to.equal('All fields are required');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -647,7 +647,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "update"]
 						},
-						"description": "## Update Supplier — Missing Fields\n\nAttempts to update a supplier with incomplete data.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Todos los campos son requeridos\"`\n\n### Test Case\nSP2-QA-14"
+						"description": "## Update Supplier — Missing Fields\n\nAttempts to update a supplier with incomplete data.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"All fields are required\"`\n\n### Test Case\nSP2-QA-14"
 					},
 					"response": [
 						{
@@ -679,7 +679,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Todos los campos son requeridos\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
 						}
 					]
 				},
@@ -699,9 +699,9 @@
 									"    pm.expect(jsonData.success).to.be.false;",
 									"});",
 									"",
-									"pm.test('Error message is Proveedor no encontrado', function () {",
+									"pm.test('Error message is Supplier not found', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Proveedor no encontrado');",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -730,7 +730,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "update"]
 						},
-						"description": "## Update Supplier — Not Found\n\nAttempts to update a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Proveedor no encontrado\"`"
+						"description": "## Update Supplier — Not Found\n\nAttempts to update a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`"
 					},
 					"response": [
 						{
@@ -762,7 +762,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Proveedor no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
 						}
 					]
 				},
@@ -827,9 +827,9 @@
 									"    pm.expect(jsonData.success).to.be.false;",
 									"});",
 									"",
-									"pm.test('Error message is Proveedor no encontrado', function () {",
+									"pm.test('Error message is Supplier not found', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Proveedor no encontrado');",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -849,7 +849,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["suppliers", "delete", "999999999"]
 						},
-						"description": "## Delete Supplier — Not Found\n\nAttempts to delete a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Proveedor no encontrado\"`\n\n### Test Case\nSP2-QA-16"
+						"description": "## Delete Supplier — Not Found\n\nAttempts to delete a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`\n\n### Test Case\nSP2-QA-16"
 					},
 					"response": [
 						{
@@ -872,7 +872,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Proveedor no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
 						}
 					]
 				}
@@ -972,7 +972,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 15,\n    \"updated\": 2,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 4,\n        \"product_code\": \"1004\",\n        \"reason\": \"nit_supplier 000000001 no existe\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 15,\n    \"updated\": 2,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 4,\n        \"product_code\": \"1004\",\n        \"reason\": \"nit_supplier 000000001 does not exist\"\n      }\n    ]\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -994,7 +994,7 @@
 									"",
 									"pm.test('Error message indicates file required', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Debe seleccionar un archivo');",
+									"    pm.expect(jsonData.error).to.equal('A file must be selected');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -1018,7 +1018,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["products", "upload"]
 						},
-						"description": "## Upload CSV — No File\n\nAttempts to upload without providing a file.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"Debe seleccionar un archivo\"`\n\n### Test Case\nSP3-QA-02"
+						"description": "## Upload CSV — No File\n\nAttempts to upload without providing a file.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"A file must be selected\"`\n\n### Test Case\nSP3-QA-02"
 					},
 					"response": [
 						{
@@ -1045,7 +1045,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Debe seleccionar un archivo\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"A file must be selected\"\n}"
 						}
 					]
 				},
@@ -1067,7 +1067,7 @@
 									"",
 									"pm.test('Error message indicates CSV format required', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('El archivo debe ser formato CSV');",
+									"    pm.expect(jsonData.error).to.equal('File must be in CSV format');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -1098,7 +1098,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["products", "upload"]
 						},
-						"description": "## Upload CSV — Invalid Format\n\nAttempts to upload a file that is not a `.csv`.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"El archivo debe ser formato CSV\"`\n\n### Test Case\nSP3-QA-03"
+						"description": "## Upload CSV — Invalid Format\n\nAttempts to upload a file that is not a `.csv`.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"File must be in CSV format\"`\n\n### Test Case\nSP3-QA-03"
 					},
 					"response": [
 						{
@@ -1131,7 +1131,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"El archivo debe ser formato CSV\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"File must be in CSV format\"\n}"
 						}
 					]
 				},
@@ -1159,7 +1159,7 @@
 									"pm.test('Rejected rows contain reason with nit_supplier', function () {",
 									"    var jsonData = pm.response.json();",
 									"    pm.expect(jsonData.data.rejected_rows.length).to.be.greaterThan(0);",
-									"    pm.expect(jsonData.data.rejected_rows[0].reason).to.include('no existe');",
+									"    pm.expect(jsonData.data.rejected_rows[0].reason).to.include('does not exist');",
 									"});",
 									"",
 									"pm.test('Error is null', function () {",
@@ -1190,7 +1190,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["products", "upload"]
 						},
-						"description": "## Upload CSV — Invalid NIT (rejected rows)\n\nUploads a CSV file where some rows reference a `nit_supplier` that does not exist in the suppliers table.\n\n### Expected Behavior\n- Returns **200 OK** — processing does not stop on invalid rows\n- `rejected` count reflects rows with non-existent supplier\n- `rejected_rows` array contains details for each rejected row with reason `\"nit_supplier XXXXXXXXX no existe\"`\n- Valid rows in the same file are still processed normally\n\n### Test Case\nSP3-QA-04"
+						"description": "## Upload CSV — Invalid NIT (rejected rows)\n\nUploads a CSV file where some rows reference a `nit_supplier` that does not exist in the suppliers table.\n\n### Expected Behavior\n- Returns **200 OK** — processing does not stop on invalid rows\n- `rejected` count reflects rows with non-existent supplier\n- `rejected_rows` array contains details for each rejected row with reason `\"nit_supplier XXXXXXXXX does not exist\"`\n- Valid rows in the same file are still processed normally\n\n### Test Case\nSP3-QA-04"
 					},
 					"response": [
 						{
@@ -1223,7 +1223,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 2,\n    \"updated\": 0,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 3,\n        \"product_code\": \"1003\",\n        \"reason\": \"nit_supplier 000000001 no existe\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 2,\n    \"updated\": 0,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 3,\n        \"product_code\": \"1003\",\n        \"reason\": \"nit_supplier 000000001 does not exist\"\n      }\n    ]\n  },\n  \"error\": null\n}"
 						}
 					]
 				},
@@ -1314,9 +1314,9 @@
 									"    pm.expect(jsonData.success).to.be.false;",
 									"});",
 									"",
-									"pm.test('Error message is Producto no encontrado', function () {",
+									"pm.test('Error message is Product not found', function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.error).to.equal('Producto no encontrado');",
+									"    pm.expect(jsonData.error).to.equal('Product not found');",
 									"});",
 									"",
 									"pm.test('Data is null', function () {",
@@ -1336,7 +1336,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["products", "9999"]
 						},
-						"description": "## Get Product — Not Found\n\nAttempts to retrieve a product with a code that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Producto no encontrado\"`\n\n### Test Case\nSP4-QA-04"
+						"description": "## Get Product — Not Found\n\nAttempts to retrieve a product with a code that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Product not found\"`\n\n### Test Case\nSP4-QA-04"
 					},
 					"response": [
 						{
@@ -1359,7 +1359,7 @@
 									"value": "application/json; charset=utf-8"
 								}
 							],
-							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Producto no encontrado\"\n}"
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Product not found\"\n}"
 						}
 					]
 				},
