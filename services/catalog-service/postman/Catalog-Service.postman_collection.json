@@ -1,0 +1,1435 @@
+{
+	"info": {
+		"_postman_id": "catalog-service-tienda-generica",
+		"name": "Catalog Service — Tienda Generica",
+		"description": "# Catalog Service API Documentation\n\n## Overview\nThe **catalog-service** is a Go microservice (port **3003**) responsible for CRUD operations on suppliers and bulk CSV upload of products within the Tienda Generica backend system. It uses **Gin** as the HTTP framework, **GORM** as the ORM, and **MySQL 8.0** (`db_catalog` schema) as the database.\n\n## Architecture\n```\nHandler → Repository → Domain (Clean Architecture, no use-case layer)\n```\n\nThis service is **internal only** — it does **not** validate JWTs. All requests must pass through the **API Gateway** (port 8080), which validates the JWT and injects the following headers:\n\n| Header | Description |\n|---|---|\n| `X-User-Id` | Cedula of the authenticated user |\n| `X-Username` | Username of the authenticated user |\n| `X-Internal` | Always `\"true\"` when coming from gateway |\n\n## Standard Response Envelope\nEvery endpoint returns this structure:\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | [ ... ] | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Database Models\n\n### `suppliers` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| nit | VARCHAR(20) | PRIMARY KEY | Supplier tax ID |\n| supplier_name | VARCHAR(100) | NOT NULL | Supplier name |\n| address | VARCHAR(200) | NOT NULL | Address |\n| phone | VARCHAR(20) | NOT NULL | Phone number |\n| city | VARCHAR(100) | NOT NULL | City |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n### `products` table\n| Column | Type | Constraints | Description |\n|---|---|---|---|\n| product_code | VARCHAR(20) | PRIMARY KEY | Product code |\n| product_name | VARCHAR(100) | NOT NULL | Product name |\n| nit_supplier | VARCHAR(20) | NOT NULL, FK → suppliers(nit) | Supplier NIT |\n| purchase_price | DECIMAL(10,2) | NOT NULL | Purchase price |\n| purchase_vat | DECIMAL(5,2) | NOT NULL | VAT percentage |\n| sale_price | DECIMAL(10,2) | NOT NULL | Sale price |\n| created_at | TIMESTAMP | AUTO (creation time) | Timestamp |\n\n## CSV Upload Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Red Apples,900123456,2500,19,4000\n```",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3003",
+			"type": "string",
+			"description": "Base URL of the catalog-service (direct access)"
+		},
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway (production entry point)"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Health Check\n\nReturns the health status of the catalog-service. Use this endpoint to verify that the service is running and responsive.\n\n### Authentication\nNone required.\n\n### Parameters\nNone.\n\n### Response\n- **200 OK** — Service is healthy\n\n### Notes\n- Useful for load balancer health probes and monitoring"
+					},
+					"response": [
+						{
+							"name": "200 — Service Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"catalog-service\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Service health and liveness probe."
+		},
+		{
+			"name": "Suppliers",
+			"item": [
+				{
+					"name": "Create Supplier — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains supplier data', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('nit');",
+									"    pm.expect(jsonData.data).to.have.property('supplier_name');",
+									"    pm.expect(jsonData.data).to.have.property('address');",
+									"    pm.expect(jsonData.data).to.have.property('phone');",
+									"    pm.expect(jsonData.data).to.have.property('city');",
+									"    pm.expect(jsonData.data).to.have.property('created_at');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogota\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/save",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "save"]
+						},
+						"description": "## Create Supplier — Success\n\nCreates a new supplier with all required fields.\n\n### Request Body\n| Field | Type | Required | Description |\n|---|---|---|---|\n| nit | string | Yes | Supplier tax ID (unique) |\n| supplier_name | string | Yes | Supplier name |\n| address | string | Yes | Address |\n| phone | string | Yes | Phone number |\n| city | string | Yes | City |\n\n### Response\n- **201 Created** — Supplier created successfully\n\n### Test Case\nSP2-QA-09"
+					},
+					"response": [
+						{
+							"name": "201 — Supplier Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\",\n  \"address\": \"Carrera 10 #5-20\",\n  \"phone\": \"6012345678\",\n  \"city\": \"Bogota\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/save",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "save"]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogota\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Supplier — Missing Fields",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates required fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('All fields are required');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/save",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "save"]
+						},
+						"description": "## Create Supplier — Missing Fields\n\nAttempts to create a supplier with missing required fields.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"All fields are required\"`\n\n### Test Case\nSP2-QA-10"
+					},
+					"response": [
+						{
+							"name": "400 — Missing Fields",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/save",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "save"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Supplier — Duplicate NIT",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 409', function () {",
+									"    pm.response.to.have.status(409);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates duplicate NIT', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('A supplier with that NIT already exists');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Another Company Inc.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellin\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/save",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "save"]
+						},
+						"description": "## Create Supplier — Duplicate NIT\n\nAttempts to create a supplier with a NIT that already exists in the database.\n\n### Prerequisites\n- A supplier with NIT `900123456` must already exist (run \"Create Supplier — Success\" first)\n\n### Expected Behavior\n- Returns **409 Conflict** with `\"A supplier with that NIT already exists\"`"
+					},
+					"response": [
+						{
+							"name": "409 — Duplicate NIT",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Another Company Inc.\",\n  \"address\": \"Calle 50 #10-30\",\n  \"phone\": \"6019876543\",\n  \"city\": \"Medellin\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/save",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "save"]
+								}
+							},
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"A supplier with that NIT already exists\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Supplier — Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains supplier data', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('nit');",
+									"    pm.expect(jsonData.data.nit).to.equal('900123456');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/suppliers/900123456",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "900123456"]
+						},
+						"description": "## Get Supplier — Found\n\nRetrieves a supplier by NIT.\n\n### Parameters\n| Parameter | Location | Description |\n|---|---|---|\n| id | path | Supplier NIT |\n\n### Response\n- **200 OK** — Supplier found\n\n### Test Case\nSP2-QA-11"
+					},
+					"response": [
+						{
+							"name": "200 — Supplier Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/suppliers/900123456",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "900123456"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc.\",\n    \"address\": \"Carrera 10 #5-20\",\n    \"phone\": \"6012345678\",\n    \"city\": \"Bogota\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Supplier — Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Supplier not found', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/suppliers/999999999",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "999999999"]
+						},
+						"description": "## Get Supplier — Not Found\n\nAttempts to retrieve a supplier with a NIT that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`\n\n### Test Case\nSP2-QA-12"
+					},
+					"response": [
+						{
+							"name": "404 — Supplier Not Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/suppliers/999999999",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "999999999"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List Suppliers",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/suppliers/list",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "list"]
+						},
+						"description": "## List Suppliers\n\nRetrieves all suppliers. Returns an empty array `[]` if no suppliers exist.\n\n### Response\n- **200 OK** — List of suppliers (may be empty)"
+					},
+					"response": [
+						{
+							"name": "200 — Suppliers List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/suppliers/list",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"nit\": \"900123456\",\n      \"supplier_name\": \"Fruits Inc.\",\n      \"address\": \"Carrera 10 #5-20\",\n      \"phone\": \"6012345678\",\n      \"city\": \"Bogota\",\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Supplier — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Supplier data is updated', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.supplier_name).to.equal('Fruits Inc. Updated');",
+									"    pm.expect(jsonData.data.city).to.equal('Medellin');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc. Updated\",\n  \"address\": \"New address\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellin\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/update",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "update"]
+						},
+						"description": "## Update Supplier — Success\n\nUpdates an existing supplier. The NIT identifies the supplier to update; it cannot be changed.\n\n### Prerequisites\n- Supplier with NIT `900123456` must exist\n\n### Request Body\nAll fields are required.\n\n### Response\n- **200 OK** — Supplier updated successfully\n\n### Test Case\nSP2-QA-13"
+					},
+					"response": [
+						{
+							"name": "200 — Supplier Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc. Updated\",\n  \"address\": \"New address\",\n  \"phone\": \"6019999999\",\n  \"city\": \"Medellin\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/update",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "update"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"nit\": \"900123456\",\n    \"supplier_name\": \"Fruits Inc. Updated\",\n    \"address\": \"New address\",\n    \"phone\": \"6019999999\",\n    \"city\": \"Medellin\",\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Supplier — Missing Fields",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates required fields', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('All fields are required');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/update",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "update"]
+						},
+						"description": "## Update Supplier — Missing Fields\n\nAttempts to update a supplier with incomplete data.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"All fields are required\"`\n\n### Test Case\nSP2-QA-14"
+					},
+					"response": [
+						{
+							"name": "400 — Missing Fields",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"900123456\",\n  \"supplier_name\": \"Fruits Inc.\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/update",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "update"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"All fields are required\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Supplier — Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Supplier not found', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"Does Not Exist Inc.\",\n  \"address\": \"Address\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/suppliers/update",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "update"]
+						},
+						"description": "## Update Supplier — Not Found\n\nAttempts to update a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`"
+					},
+					"response": [
+						{
+							"name": "404 — Supplier Not Found",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nit\": \"999999999\",\n  \"supplier_name\": \"Does Not Exist Inc.\",\n  \"address\": \"Address\",\n  \"phone\": \"6011111111\",\n  \"city\": \"Cali\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/suppliers/update",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "update"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Supplier — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/suppliers/delete/900123456",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "delete", "900123456"]
+						},
+						"description": "## Delete Supplier — Success\n\nDeletes an existing supplier by NIT.\n\n### Prerequisites\n- Supplier with NIT `900123456` must exist\n- Supplier must not have associated products (FK constraint)\n\n### Response\n- **204 No Content** — Supplier deleted successfully (empty body)\n\n### Test Case\nSP2-QA-15"
+					},
+					"response": [
+						{
+							"name": "204 — Supplier Deleted",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/suppliers/delete/900123456",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "delete", "900123456"]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "text",
+							"header": [],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Delete Supplier — Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Supplier not found', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Supplier not found');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/suppliers/delete/999999999",
+							"host": ["{{base_url}}"],
+							"path": ["suppliers", "delete", "999999999"]
+						},
+						"description": "## Delete Supplier — Not Found\n\nAttempts to delete a supplier that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Supplier not found\"`\n\n### Test Case\nSP2-QA-16"
+					},
+					"response": [
+						{
+							"name": "404 — Supplier Not Found",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/suppliers/delete/999999999",
+									"host": ["{{base_url}}"],
+									"path": ["suppliers", "delete", "999999999"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Supplier not found\"\n}"
+						}
+					]
+				}
+			],
+			"description": "CRUD operations for suppliers. Suppliers are identified by their NIT (tax ID)."
+		},
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "Upload CSV — Success",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains upload result', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('inserted');",
+									"    pm.expect(jsonData.data).to.have.property('updated');",
+									"    pm.expect(jsonData.data).to.have.property('rejected');",
+									"    pm.expect(jsonData.data).to.have.property('rejected_rows');",
+									"});",
+									"",
+									"pm.test('Inserted count is greater than 0', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.inserted).to.be.greaterThan(0);",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "CSV file with columns: product_code, product_name, nit_supplier, purchase_price, purchase_vat, sale_price"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/products/upload",
+							"host": ["{{base_url}}"],
+							"path": ["products", "upload"]
+						},
+						"description": "## Upload CSV — Success\n\nUploads a CSV file with product data. Products are inserted or updated based on `product_code`.\n\n### Prerequisites\n- At least one supplier must exist in the database (the `nit_supplier` in the CSV must match an existing supplier)\n\n### Request\n- `Content-Type: multipart/form-data`\n- Field name: `file`\n\n### CSV Format\n```\nproduct_code,product_name,nit_supplier,purchase_price,purchase_vat,sale_price\n1001,Red Apples,900123456,2500,19,4000\n1002,Bananas,900123456,1800,19,3000\n```\n\n### Processing Rules\n- Each row is validated independently\n- If `nit_supplier` does not exist → row is rejected (not inserted)\n- If `product_code` already exists → UPDATE\n- If `product_code` does not exist → INSERT\n- Processing continues even if some rows are rejected\n\n### Response\n- **200 OK** — Upload result with counts of inserted, updated, and rejected rows\n\n### Test Case\nSP3-QA-01"
+					},
+					"response": [
+						{
+							"name": "200 — CSV Uploaded Successfully",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": ""
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/products/upload",
+									"host": ["{{base_url}}"],
+									"path": ["products", "upload"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 15,\n    \"updated\": 2,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 4,\n        \"product_code\": \"1004\",\n        \"reason\": \"nit_supplier 000000001 does not exist\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload CSV — No File",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates file required', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('A file must be selected');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": []
+						},
+						"url": {
+							"raw": "{{base_url}}/products/upload",
+							"host": ["{{base_url}}"],
+							"path": ["products", "upload"]
+						},
+						"description": "## Upload CSV — No File\n\nAttempts to upload without providing a file.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"A file must be selected\"`\n\n### Test Case\nSP3-QA-02"
+					},
+					"response": [
+						{
+							"name": "400 — No File",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": []
+								},
+								"url": {
+									"raw": "{{base_url}}/products/upload",
+									"host": ["{{base_url}}"],
+									"path": ["products", "upload"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"A file must be selected\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload CSV — Invalid Format (not .csv)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates CSV format required', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('File must be in CSV format');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "A non-CSV file (e.g., .txt, .xlsx)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/products/upload",
+							"host": ["{{base_url}}"],
+							"path": ["products", "upload"]
+						},
+						"description": "## Upload CSV — Invalid Format\n\nAttempts to upload a file that is not a `.csv`.\n\n### Expected Behavior\n- Returns **400 Bad Request** with `\"File must be in CSV format\"`\n\n### Test Case\nSP3-QA-03"
+					},
+					"response": [
+						{
+							"name": "400 — Invalid Format",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": ""
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/products/upload",
+									"host": ["{{base_url}}"],
+									"path": ["products", "upload"]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"File must be in CSV format\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload CSV — Invalid NIT (rejected rows)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Rejected count is greater than 0', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.rejected).to.be.greaterThan(0);",
+									"});",
+									"",
+									"pm.test('Rejected rows contain reason with nit_supplier', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.rejected_rows.length).to.be.greaterThan(0);",
+									"    pm.expect(jsonData.data.rejected_rows[0].reason).to.include('does not exist');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "CSV file where some rows reference a nit_supplier that does not exist in the suppliers table"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/products/upload",
+							"host": ["{{base_url}}"],
+							"path": ["products", "upload"]
+						},
+						"description": "## Upload CSV — Invalid NIT (rejected rows)\n\nUploads a CSV file where some rows reference a `nit_supplier` that does not exist in the suppliers table.\n\n### Expected Behavior\n- Returns **200 OK** — processing does not stop on invalid rows\n- `rejected` count reflects rows with non-existent supplier\n- `rejected_rows` array contains details for each rejected row with reason `\"nit_supplier XXXXXXXXX does not exist\"`\n- Valid rows in the same file are still processed normally\n\n### Test Case\nSP3-QA-04"
+					},
+					"response": [
+						{
+							"name": "200 — With Rejected Rows",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": ""
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/products/upload",
+									"host": ["{{base_url}}"],
+									"path": ["products", "upload"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"inserted\": 2,\n    \"updated\": 0,\n    \"rejected\": 1,\n    \"rejected_rows\": [\n      {\n        \"row\": 3,\n        \"product_code\": \"1003\",\n        \"reason\": \"nit_supplier 000000001 does not exist\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Product — Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains product data', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('product_code');",
+									"    pm.expect(jsonData.data).to.have.property('product_name');",
+									"    pm.expect(jsonData.data).to.have.property('nit_supplier');",
+									"    pm.expect(jsonData.data).to.have.property('purchase_price');",
+									"    pm.expect(jsonData.data).to.have.property('purchase_vat');",
+									"    pm.expect(jsonData.data).to.have.property('sale_price');",
+									"    pm.expect(jsonData.data).to.have.property('created_at');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/products/1001",
+							"host": ["{{base_url}}"],
+							"path": ["products", "1001"]
+						},
+						"description": "## Get Product — Found\n\nRetrieves a product by `product_code`.\n\n### Prerequisites\n- Product with code `1001` must exist (upload a CSV first)\n\n### Parameters\n| Parameter | Location | Description |\n|---|---|---|\n| id | path | Product code |\n\n### Response\n- **200 OK** — Product found\n\n### Test Case\nSP4-QA-03"
+					},
+					"response": [
+						{
+							"name": "200 — Product Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/1001",
+									"host": ["{{base_url}}"],
+									"path": ["products", "1001"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"product_code\": \"1001\",\n    \"product_name\": \"Red Apples\",\n    \"nit_supplier\": \"900123456\",\n    \"purchase_price\": 2500.00,\n    \"purchase_vat\": 19.00,\n    \"sale_price\": 4000.00,\n    \"created_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Product — Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message is Product not found', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Product not found');",
+									"});",
+									"",
+									"pm.test('Data is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/products/9999",
+							"host": ["{{base_url}}"],
+							"path": ["products", "9999"]
+						},
+						"description": "## Get Product — Not Found\n\nAttempts to retrieve a product with a code that does not exist.\n\n### Expected Behavior\n- Returns **404 Not Found** with `\"Product not found\"`\n\n### Test Case\nSP4-QA-04"
+					},
+					"response": [
+						{
+							"name": "404 — Product Not Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/9999",
+									"host": ["{{base_url}}"],
+									"path": ["products", "9999"]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Product not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List Products",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Error is null', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/products/list",
+							"host": ["{{base_url}}"],
+							"path": ["products", "list"]
+						},
+						"description": "## List Products\n\nRetrieves all products. Returns an empty array `[]` if no products exist.\n\n### Response\n- **200 OK** — List of products (may be empty)"
+					},
+					"response": [
+						{
+							"name": "200 — Products List",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/products/list",
+									"host": ["{{base_url}}"],
+									"path": ["products", "list"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Red Apples\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 2500.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 4000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Bananas\",\n      \"nit_supplier\": \"900123456\",\n      \"purchase_price\": 1800.00,\n      \"purchase_vat\": 19.00,\n      \"sale_price\": 3000.00,\n      \"created_at\": \"2024-01-01T00:00:00Z\"\n    }\n  ],\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Product management via CSV bulk upload. Products are created by uploading CSV files and can be queried individually or as a list."
+		}
+	]
+}
