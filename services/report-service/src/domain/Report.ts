@@ -24,4 +24,5 @@ export interface ISalesByCustomerReport {
   customer_id: string
   full_name: string
   total_purchases: number
+  sale_count: number
 }

@@ -48,6 +48,7 @@ export class ReportHandler {
           customer_id: customer.document_id,
           full_name: customer.full_name,
           total_purchases: summaries[index].total_purchases,
+          sale_count: summaries[index].sale_count,
         }))
         .filter((entry) => entry.total_purchases > 0)
 

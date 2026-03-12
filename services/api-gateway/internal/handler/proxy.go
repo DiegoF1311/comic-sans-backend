@@ -48,7 +48,7 @@ func (p *ProxyHandler) ProxyUsers() gin.HandlerFunc {
 }
 
 func (p *ProxyHandler) ProxyCatalog() gin.HandlerFunc {
-	return p.createProxy(p.catalogServiceURL, "/catalog")
+	return p.createProxy(p.catalogServiceURL, "")
 }
 
 func (p *ProxyHandler) ProxyCustomers() gin.HandlerFunc {
