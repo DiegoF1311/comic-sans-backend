@@ -1,0 +1,587 @@
+{
+	"info": {
+		"_postman_id": "api-gateway-comic-sans",
+		"name": "API Gateway — Comic Sans",
+		"description": "# API Gateway Documentation\n\n## Overview\nThe **api-gateway** is a Go microservice (port **8080**) that acts as the single entry point for the React frontend. It validates JWTs on protected routes and proxies requests to internal microservices, injecting `X-User-Id`, `X-Username`, and `X-Internal` headers.\n\n## Architecture\n```\nFrontend → API Gateway → Internal Microservices\n```\n\n## Route Mapping\n| Gateway Path | Target Service | JWT Required |\n|---|---|---|\n| POST /api/auth/* | auth-service (3001) | No |\n| /api/users/* | user-service (3002) | Yes |\n| /api/catalog/* | catalog-service (3003) | Yes |\n| /api/customers/* | customer-service (3004) | Yes |\n| /api/sales/* | sales-service (3005) | Yes |\n| /api/reports/* | report-service (3006) | Yes |\n\n## Standard Response Envelope\n```json\n{\n  \"success\": true | false,\n  \"data\": { ... } | null,\n  \"error\": null | \"Descriptive error message\"\n}\n```\n\n## Usage\n1. First, call **Login** to obtain a JWT token (auto-saved to `auth_token` variable)\n2. Then use any protected endpoint — the token is automatically included via `Bearer {{auth_token}}`",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string",
+			"description": "Base URL of the API Gateway"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string",
+			"description": "JWT token — auto-populated by the Login request"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Gateway Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "## Gateway Health Check\n\nReturns the health status of the api-gateway itself.\n\n### Authentication\nNone required.\n\n### Response\n- **200 OK** — Gateway is healthy"
+					},
+					"response": [
+						{
+							"name": "200 — Gateway Healthy",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/health",
+									"host": ["{{base_url}}"],
+									"path": ["health"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"service\": \"api-gateway\",\n    \"status\": \"ok\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				}
+			],
+			"description": "Gateway health and liveness probe."
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Response contains token', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('token');",
+									"});",
+									"",
+									"// Auto-save token for subsequent requests",
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token', jsonData.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "## Login via Gateway\n\nAuthenticates a user through the gateway. This route does **not** require JWT validation.\n\nThe returned token is automatically saved to the `auth_token` collection variable for use in protected endpoints.\n\n### Prerequisites\n- **auth-service** and **user-service** must be running\n\n### Request Body\n| Field | Type | Required |\n|---|---|---|\n| username | string | Yes |\n| password | string | Yes |"
+					},
+					"response": [
+						{
+							"name": "200 — Login Successful",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{ "key": "Content-Type", "value": "application/json" }
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admininicial\",\n  \"password\": \"admin123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auth/login",
+									"host": ["{{base_url}}"],
+									"path": ["api", "auth", "login"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n  },\n  \"error\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Protected Route — No Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Response has success false', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"pm.test('Error message indicates token required', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Token required');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "list"]
+						},
+						"description": "## Protected Route — No Token\n\nAttempts to access a protected route without providing a JWT.\n\n### Expected Behavior\n- Returns **401 Unauthorized** with `\"Token required\"`"
+					},
+					"response": [
+						{
+							"name": "401 — Token Required",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["api", "users", "list"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Token required\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Protected Route — Invalid Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test('Error message indicates invalid token', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.equal('Invalid or expired token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer invalid.token.here"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "list"]
+						},
+						"description": "## Protected Route — Invalid Token\n\nAttempts to access a protected route with an invalid JWT.\n\n### Expected Behavior\n- Returns **401 Unauthorized** with `\"Invalid or expired token\"`"
+					},
+					"response": [
+						{
+							"name": "401 — Invalid Token",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{ "key": "Authorization", "value": "Bearer invalid.token.here" }
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/list",
+									"host": ["{{base_url}}"],
+									"path": ["api", "users", "list"]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{ "key": "Content-Type", "value": "application/json; charset=utf-8" }
+							],
+							"body": "{\n  \"success\": false,\n  \"data\": null,\n  \"error\": \"Invalid or expired token\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Authentication and JWT validation tests."
+		},
+		{
+			"name": "Users (via Gateway)",
+			"item": [
+				{
+					"name": "List Users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "list"]
+						},
+						"description": "## List Users\n\nProxied to `user-service GET /users/list`.\n\n### Authentication\nRequires valid JWT in Authorization header."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User By Cedula",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "0"]
+						},
+						"description": "## Get User By Cedula\n\nProxied to `user-service GET /users/:cedula`."
+					},
+					"response": []
+				}
+			],
+			"description": "User management endpoints proxied through the gateway."
+		},
+		{
+			"name": "Catalog (via Gateway)",
+			"item": [
+				{
+					"name": "List Suppliers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/catalog/suppliers/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "catalog", "suppliers", "list"]
+						},
+						"description": "## List Suppliers\n\nProxied to `catalog-service GET /catalog/suppliers/list`."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Products CSV",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "CSV file with product data"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/catalog/products/upload",
+							"host": ["{{base_url}}"],
+							"path": ["api", "catalog", "products", "upload"]
+						},
+						"description": "## Upload Products CSV\n\nProxied to `catalog-service POST /catalog/products/upload`.\n\nSelect a CSV file to upload."
+					},
+					"response": []
+				}
+			],
+			"description": "Catalog management endpoints proxied through the gateway."
+		},
+		{
+			"name": "Customers (via Gateway)",
+			"item": [
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López\",\n  \"address\": \"Calle 1 #2-3\",\n  \"phone\": \"3001234567\",\n  \"email\": \"maria@mail.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/customers/save",
+							"host": ["{{base_url}}"],
+							"path": ["api", "customers", "save"]
+						},
+						"description": "## Create Customer\n\nProxied to `customer-service POST /customers/save`."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/customers/11111111",
+							"host": ["{{base_url}}"],
+							"path": ["api", "customers", "11111111"]
+						},
+						"description": "## Get Customer\n\nProxied to `customer-service GET /customers/:id`."
+					},
+					"response": []
+				},
+				{
+					"name": "List Customers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/customers/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "customers", "list"]
+						},
+						"description": "## List Customers\n\nProxied to `customer-service GET /customers/list`."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cedula\": \"11111111\",\n  \"full_name\": \"María López Actualizada\",\n  \"address\": \"Nueva dirección\",\n  \"phone\": \"3109876543\",\n  \"email\": \"marianew@mail.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/customers/update",
+							"host": ["{{base_url}}"],
+							"path": ["api", "customers", "update"]
+						},
+						"description": "## Update Customer\n\nProxied to `customer-service PUT /customers/update`."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Customer",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/customers/delete/11111111",
+							"host": ["{{base_url}}"],
+							"path": ["api", "customers", "delete", "11111111"]
+						},
+						"description": "## Delete Customer\n\nProxied to `customer-service DELETE /customers/delete/:id`."
+					},
+					"response": []
+				}
+			],
+			"description": "Customer management endpoints proxied through the gateway."
+		},
+		{
+			"name": "Sales (via Gateway)",
+			"item": [
+				{
+					"name": "Create Sale",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": \"11111111\",\n  \"details\": [\n    {\n      \"product_code\": \"1001\",\n      \"product_name\": \"Manzanas Rojas\",\n      \"quantity\": 2,\n      \"unit_price\": 4000,\n      \"vat_rate\": 19\n    },\n    {\n      \"product_code\": \"1002\",\n      \"product_name\": \"Plátanos\",\n      \"quantity\": 3,\n      \"unit_price\": 3000,\n      \"vat_rate\": 19\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/sales/save",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales", "save"]
+						},
+						"description": "## Create Sale\n\nProxied to `sales-service POST /sales/save`.\n\nThe gateway injects `X-User-Id` from the JWT payload."
+					},
+					"response": []
+				},
+				{
+					"name": "List Sales",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/sales/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sales", "list"]
+						},
+						"description": "## List Sales\n\nProxied to `sales-service GET /sales/list`."
+					},
+					"response": []
+				}
+			],
+			"description": "Sales endpoints proxied through the gateway."
+		},
+		{
+			"name": "Reports (via Gateway)",
+			"item": [
+				{
+					"name": "Users Report",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/users/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reports", "users", "list"]
+						},
+						"description": "## Users Report\n\nProxied to `report-service GET /reports/users/list`.\n\nReturns list of all system users."
+					},
+					"response": []
+				},
+				{
+					"name": "Customers Report",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/customers/list",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reports", "customers", "list"]
+						},
+						"description": "## Customers Report\n\nProxied to `report-service GET /reports/customers/list`.\n\nReturns list of all customers."
+					},
+					"response": []
+				},
+				{
+					"name": "Sales By Customer Report",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has success true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('Data is an array', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{auth_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/sales-by-customer",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reports", "sales-by-customer"]
+						},
+						"description": "## Sales By Customer Report\n\nProxied to `report-service GET /reports/sales-by-customer`.\n\nReturns aggregated sales totals per customer."
+					},
+					"response": []
+				}
+			],
+			"description": "Report endpoints proxied through the gateway."
+		}
+	]
+}
