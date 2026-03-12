@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tienda-generica/catalog-service/internal/domain"
-	"github.com/tienda-generica/catalog-service/internal/repository"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/domain"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/repository"
 	"gorm.io/gorm"
 )
 

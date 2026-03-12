@@ -1,4 +1,4 @@
-module github.com/tienda-generica/catalog-service
+module github.com/DiegoF1311/comic-sans-backend/services/catalog-service
 
 go 1.25.0
 

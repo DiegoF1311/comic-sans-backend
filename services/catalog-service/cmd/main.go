@@ -5,10 +5,10 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tienda-generica/catalog-service/config"
-	"github.com/tienda-generica/catalog-service/internal/domain"
-	"github.com/tienda-generica/catalog-service/internal/handler"
-	"github.com/tienda-generica/catalog-service/internal/repository"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/config"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/domain"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/handler"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/repository"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

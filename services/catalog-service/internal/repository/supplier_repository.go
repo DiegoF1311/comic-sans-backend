@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/tienda-generica/catalog-service/internal/domain"
+	"github.com/DiegoF1311/comic-sans-backend/services/catalog-service/internal/domain"
 	"gorm.io/gorm"
 )
 
