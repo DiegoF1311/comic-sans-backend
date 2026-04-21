@@ -148,10 +148,15 @@ services:
     deploy:
       replicas: 2
 
+  # Nginx "standalone": útil para testear el backend sin el frontend.
+  # En la EC2 real se levanta el edge nginx del repo ComicSans-Frontend que
+  # también balancea hacia api-gateway y sirve las dos SPAs, así que este
+  # perfil queda opcional para evitar conflicto de puertos en :80.
   nginx:
     image: nginx:1.27-alpine
     container_name: tienda-nginx
     restart: unless-stopped
+    profiles: ["standalone"]
     ports:
       - "80:80"
     volumes:

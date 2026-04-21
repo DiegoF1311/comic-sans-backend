@@ -66,16 +66,31 @@ cd tienda-generica-backend
 cp .env.example .env
 nano .env   # poner DB_PASSWORD y JWT_SECRET fuertes
 
-# 2. Construir y levantar
+# 2. Construir y levantar (solo backend)
 docker compose up -d --build
 
 # 3. Verificar
 docker compose ps
-curl http://localhost/healthz
-curl http://localhost/api/health   # dependerá del gateway
 ```
 
 La primera vez MySQL ejecuta `deploy/mysql-init.sql` y crea los 4 schemas.
+
+### Modos de ejecución
+
+El nginx de este compose está detrás de un **profile** (`standalone`) para
+no chocar con el edge nginx del repo `ComicSans-Frontend` cuando ambos
+corren en la misma EC2.
+
+```bash
+# Full-stack: no arrancar el nginx del backend. El edge del frontend ocupa :80
+# y proxea /api/ hacia api-gateway dentro de la red compartida tienda-net.
+docker compose up -d --build
+
+# Backend-only (dev): incluir el nginx del backend
+docker compose --profile standalone up -d --build
+curl http://localhost/healthz
+curl http://localhost/api/health
+```
 
 ---
 
