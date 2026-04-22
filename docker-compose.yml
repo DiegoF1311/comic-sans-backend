@@ -1,0 +1,174 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tienda-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/mysql-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - tienda-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  auth-service:
+    build: ./services/auth-service
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET}
+      USER_SERVICE_URL: http://user-service:3002
+    networks:
+      - tienda-net
+    depends_on:
+      user-service:
+        condition: service_started
+    deploy:
+      replicas: 2
+
+  user-service:
+    build: ./services/user-service
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_users
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - tienda-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  catalog-service:
+    build: ./services/catalog-service
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_catalog
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - tienda-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  customer-service:
+    build: ./services/customer-service
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_customers
+    networks:
+      - tienda-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  sales-service:
+    build: ./services/sales-service
+    restart: unless-stopped
+    environment:
+      PORT: 3005
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: db_sales
+    networks:
+      - tienda-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+  report-service:
+    build: ./services/report-service
+    restart: unless-stopped
+    environment:
+      PORT: 3006
+      USER_SERVICE_URL: http://user-service:3002
+      CUSTOMER_SERVICE_URL: http://customer-service:3004
+      SALES_SERVICE_URL: http://sales-service:3005
+    networks:
+      - tienda-net
+    depends_on:
+      - user-service
+      - customer-service
+      - sales-service
+    deploy:
+      replicas: 2
+
+  api-gateway:
+    build: ./services/api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      CATALOG_SERVICE_URL: http://catalog-service:3003
+      CUSTOMER_SERVICE_URL: http://customer-service:3004
+      SALES_SERVICE_URL: http://sales-service:3005
+      REPORT_SERVICE_URL: http://report-service:3006
+    networks:
+      - tienda-net
+    depends_on:
+      - auth-service
+      - user-service
+      - catalog-service
+      - customer-service
+      - sales-service
+      - report-service
+    deploy:
+      replicas: 2
+
+  # Nginx "standalone": útil para testear el backend sin el frontend.
+  # En la EC2 real se levanta el edge nginx del repo ComicSans-Frontend que
+  # también balancea hacia api-gateway y sirve las dos SPAs, así que este
+  # perfil queda opcional para evitar conflicto de puertos en :80.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tienda-nginx
+    restart: unless-stopped
+    profiles: ["standalone"]
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - tienda-net
+    depends_on:
+      - api-gateway
+
+networks:
+  tienda-net:
+    driver: bridge
+
+volumes:
+  mysql-data:

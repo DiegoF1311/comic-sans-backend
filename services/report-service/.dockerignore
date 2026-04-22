@@ -1,0 +1,15 @@
+.env
+.env.local
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+CLAUDE.md
+postman/
+node_modules/
+dist/
+coverage/
+*.log
+src/__tests__
+jest.config.js

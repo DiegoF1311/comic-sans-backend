@@ -1,0 +1,12 @@
+.env
+.env.local
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+CLAUDE.md
+postman/
+server
+main.exe
+*.log
