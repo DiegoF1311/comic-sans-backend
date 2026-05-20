@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tienda-admin
+  namespace: comic-sans
+spec:
+  selector:
+    app: tienda-admin
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tienda-admin
+  namespace: comic-sans
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tienda-admin
+  template:
+    metadata:
+      labels:
+        app: tienda-admin
+    spec:
+      containers:
+        - name: tienda-admin
+          image: comicsans-frontend-tienda-admin:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests: { memory: 16Mi, cpu: 10m }
+            limits:   { memory: 64Mi, cpu: 100m }
