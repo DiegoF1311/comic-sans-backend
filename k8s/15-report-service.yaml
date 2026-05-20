@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+  namespace: comic-sans
+spec:
+  selector:
+    app: report-service
+  ports:
+    - port: 3006
+      targetPort: 3006
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  namespace: comic-sans
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: report-service
+  template:
+    metadata:
+      labels:
+        app: report-service
+    spec:
+      containers:
+        - name: report-service
+          image: comic-sans-backend-report-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3006
+          env:
+            - name: PORT
+              value: "3006"
+            - name: USER_SERVICE_URL
+              value: "http://user-service:3002"
+            - name: CUSTOMER_SERVICE_URL
+              value: "http://customer-service:3004"
+            - name: SALES_SERVICE_URL
+              value: "http://sales-service:3005"
+          resources:
+            requests: { memory: 64Mi, cpu: 50m }
+            limits:   { memory: 256Mi, cpu: 400m }
